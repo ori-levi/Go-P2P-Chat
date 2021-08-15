@@ -1,13 +1,11 @@
 package main
 
-const (
-	CLIENT_DISCONNECT = iota
-	CLOSE_ALL
-)
+// const (
+// 	CLIENT_DISCONNECT = iota
+// 	CLOSE_ALL
+// )
 
-type InnerCommand struct {
-	command int
-	data    interface{}
-}
-
-type InnerCommandChannel chan InnerCommand
+// type InnerCommand struct {
+// 	command int
+// 	data    interface{}
+// }
