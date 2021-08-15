@@ -7,8 +7,8 @@ import (
 )
 
 type Server struct {
-	Listener net.Listener
-	// MegaChannel chan InnerCommand
+	Listener    net.Listener
+	MegaChannel chan InnerCommand
 	// ClientChannels map[Client]chan InnerCommand
 }
 
@@ -25,8 +25,8 @@ func NewServer(port int, listenAllInterfaces bool) Server {
 	}
 
 	return Server{
-		Listener: ln,
-		// MegaChannel: make(chan InnerCommand),
+		Listener:    ln,
+		MegaChannel: make(chan InnerCommand), // 32),
 		// ClientChannels: make(map[Client]chan InnerCommand),
 	}
 }
@@ -34,7 +34,7 @@ func NewServer(port int, listenAllInterfaces bool) Server {
 func (s *Server) Close() {
 	fmt.Println("close called")
 	s.Listener.Close()
-	// close(s.MegaChannel)
+	close(s.MegaChannel)
 	// for _, c := range s.ClientChannels {
 	// 	close(c)
 	// }
@@ -44,51 +44,43 @@ func (s *Server) RunServer() {
 	defer s.Close()
 
 	fmt.Println("Start listening to connection", s.Listener.Addr().String())
-	// loop:
+	go s.handleMegaChannel()
+
 	for {
-		// select {
-		// case msg := <-s.MegaChannel:
-		// 	if msg.command == CLOSE_ALL {
-		// 		break loop
+		conn, err := s.Listener.Accept()
+		if err != nil {
+			fmt.Println("Failed to accept connection, error:", err)
+		}
+
+		fmt.Println("Accept client from", conn.RemoteAddr().String())
+		client := NewFromConnection(conn)
+
+		// channel := make(chan InnerCommand)
+		// s.ClientChannels[client] = channel
+		go handleConnection(&client, s.MegaChannel) //, channel)
+	}
+}
+
+func (s *Server) handleMegaChannel() {
+	message := <-s.MegaChannel
+
+	if message.command == CLIENT_DISCONNECT {
+		client := message.data.(*Client)
+		fmt.Println("Client disconnect", client.RawConnection.RemoteAddr().String())
+		// close(s.ClientChannels[client])
+		// delete(s.ClientChannels, client)
+		// for _, c := range s.ClientChannels {
+		// 	c <- InnerCommand{
+		// 		command: CLIENT_DISCONNECT,
+		// 		data:    client,
 		// 	}
-		// 	handleMegaChannel(s, msg)
-		// default:
-		s.acceptNewConnection()
 		// }
 	}
+
+	go s.handleMegaChannel()
 }
 
-// func handleMegaChannel(s *Server, message InnerCommand) {
-// 	if message.command == CLIENT_DISCONNECT {
-// 		client := message.data.(Client)
-// 		fmt.Println("bye bye", client.RawConnection.LocalAddr().String(), client.RawConnection.RemoteAddr().String())
-// 		close(s.ClientChannels[client])
-// 		delete(s.ClientChannels, client)
-// 		for _, c := range s.ClientChannels {
-// 			c <- InnerCommand{
-// 				command: CLIENT_DISCONNECT,
-// 				data:    client,
-// 			}
-// 		}
-// 	}
-//
-// }
-
-func (s *Server) acceptNewConnection() {
-	conn, err := s.Listener.Accept()
-	if err != nil {
-		fmt.Println("Failed to accept connection, error:", err)
-	}
-
-	fmt.Println("Accept client from", conn.RemoteAddr().String())
-	client := NewFromConnection(conn)
-
-	// channel := make(chan InnerCommand)
-	// s.ClientChannels[client] = channel
-	go handleConnection(&client) //, channel, s.MegaChannel)
-}
-
-func handleConnection(client *Client) { //, clientChannel chan InnerCommand, megaChannel chan InnerCommand) {
+func handleConnection(client *Client, megaChannel chan InnerCommand) { //, clientChannel chan InnerCommand) {
 	// select {
 	// case msg := <-clientChannel:
 	// 	if msg.command == CLIENT_DISCONNECT {
@@ -97,11 +89,10 @@ func handleConnection(client *Client) { //, clientChannel chan InnerCommand, meg
 	// default:
 	data, err := client.Read()
 	if client.Closed {
-		// megaChannel <- InnerCommand{
-		// 	command: CLIENT_DISCONNECT,
-		// 	data:    client,
-		// }
-		fmt.Println("Client bye bye")
+		megaChannel <- InnerCommand{
+			command: CLIENT_DISCONNECT,
+			data:    client,
+		}
 		return
 	}
 
@@ -116,5 +107,5 @@ func handleConnection(client *Client) { //, clientChannel chan InnerCommand, meg
 	}
 	// }
 
-	go handleConnection(client) //, clientChannel, megaChannel)
+	go handleConnection(client, megaChannel) //, clientChannel)
 }
