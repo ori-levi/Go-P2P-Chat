@@ -9,7 +9,7 @@ import (
 type Server struct {
 	Listener    net.Listener
 	MegaChannel chan InnerCommand
-	// ClientChannels map[Client]chan InnerCommand
+	Clients     map[*Client]net.Addr
 }
 
 func NewServer(port int, listenAllInterfaces bool) Server {
@@ -27,7 +27,7 @@ func NewServer(port int, listenAllInterfaces bool) Server {
 	return Server{
 		Listener:    ln,
 		MegaChannel: make(chan InnerCommand), // 32),
-		// ClientChannels: make(map[Client]chan InnerCommand),
+		Clients:     make(map[*Client]net.Addr),
 	}
 }
 
@@ -35,9 +35,9 @@ func (s *Server) Close() {
 	fmt.Println("close called")
 	s.Listener.Close()
 	close(s.MegaChannel)
-	// for _, c := range s.ClientChannels {
-	// 	close(c)
-	// }
+	for c, _ := range s.Clients {
+		c.Close()
+	}
 }
 
 func (s *Server) RunServer() {
@@ -55,9 +55,8 @@ func (s *Server) RunServer() {
 		fmt.Println("Accept client from", conn.RemoteAddr().String())
 		client := NewFromConnection(conn)
 
-		// channel := make(chan InnerCommand)
-		// s.ClientChannels[client] = channel
-		go handleConnection(&client, s.MegaChannel) //, channel)
+		s.Clients[&client] = client.RawConnection.RemoteAddr()
+		go handleConnection(&client, s.MegaChannel)
 	}
 }
 
@@ -67,26 +66,24 @@ func (s *Server) handleMegaChannel() {
 	if message.command == CLIENT_DISCONNECT {
 		client := message.data.(*Client)
 		fmt.Println("Client disconnect", client.RawConnection.RemoteAddr().String())
-		// close(s.ClientChannels[client])
-		// delete(s.ClientChannels, client)
-		// for _, c := range s.ClientChannels {
-		// 	c <- InnerCommand{
-		// 		command: CLIENT_DISCONNECT,
-		// 		data:    client,
-		// 	}
-		// }
+		client.Close()
+		delete(s.Clients, client)
+		for c := range s.Clients {
+			c.Channel <- InnerCommand{
+				command: CLIENT_DISCONNECT,
+				data:    client,
+			}
+		}
 	}
 
 	go s.handleMegaChannel()
 }
 
-func handleConnection(client *Client, megaChannel chan InnerCommand) { //, clientChannel chan InnerCommand) {
-	// select {
-	// case msg := <-clientChannel:
-	// 	if msg.command == CLIENT_DISCONNECT {
-	// 		client.SendString("DISCONNECTED:%v", client.RawConnection.RemoteAddr().String())
-	// 	}
-	// default:
+func handleConnection(client *Client, megaChannel chan InnerCommand) {
+	if !client.ChannelStarted {
+		go client.handleChanndel()
+	}
+
 	data, err := client.Read()
 	if client.Closed {
 		megaChannel <- InnerCommand{
@@ -105,7 +102,6 @@ func handleConnection(client *Client, megaChannel chan InnerCommand) { //, clien
 	if err != nil {
 		fmt.Println("Failed to send data")
 	}
-	// }
 
-	go handleConnection(client, megaChannel) //, clientChannel)
+	go handleConnection(client, megaChannel)
 }

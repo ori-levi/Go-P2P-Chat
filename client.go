@@ -19,16 +19,28 @@ type Protocol struct {
 }
 
 type Client struct {
-	RawConnection net.Conn
-	Reader        *bufio.Reader
-	Closed        bool
+	RawConnection  net.Conn
+	Reader         *bufio.Reader
+	Closed         bool
+	Channel        chan InnerCommand
+	ChannelStarted bool
 }
 
 func NewFromConnection(conn net.Conn) Client {
 	return Client{
-		RawConnection: conn,
-		Reader:        bufio.NewReader(conn),
-		Closed:        false,
+		RawConnection:  conn,
+		Reader:         bufio.NewReader(conn),
+		Closed:         false,
+		Channel:        make(chan InnerCommand),
+		ChannelStarted: false,
+	}
+}
+
+func (c *Client) Close() {
+	close(c.Channel)
+	err := c.RawConnection.Close()
+	if err != nil {
+		fmt.Println("Failed to close connection;", err)
 	}
 }
 
@@ -59,4 +71,15 @@ func (c *Client) Read() (Protocol, error) {
 func (c *Client) SendString(format string, args ...interface{}) (int, error) {
 	data := fmt.Sprintf(format, args...)
 	return c.RawConnection.Write([]byte(data))
+}
+
+func (c *Client) handleChanndel() {
+	c.ChannelStarted = true
+
+	msg := <-c.Channel
+	if msg.command == CLIENT_DISCONNECT {
+		c.SendString("DISCONNECTED:%v", c.RawConnection.RemoteAddr().String())
+	}
+
+	go c.handleChanndel()
 }
