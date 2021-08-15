@@ -1,1 +1,1 @@
-# go-comm-server
+# Go P2P Chat
