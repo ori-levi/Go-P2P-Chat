@@ -18,6 +18,7 @@ const (
 )
 
 type Server struct {
+	name       string
 	Listener   net.Listener
 	Clients    map[string]*common.Client
 	InChannel  chan interface{}
@@ -25,7 +26,7 @@ type Server struct {
 	locker     sync.RWMutex
 }
 
-func NewServer(port int, localInterfaceOnly bool) Server {
+func NewServer(name string, port int, localInterfaceOnly bool) Server {
 	address := AllInterfaces
 	if localInterfaceOnly {
 		address = InternalInterface
@@ -38,6 +39,7 @@ func NewServer(port int, localInterfaceOnly bool) Server {
 	}
 
 	return Server{
+		name:       name,
 		Listener:   ln,
 		Clients:    make(map[string]*common.Client),
 		InChannel:  make(chan interface{}),
@@ -101,10 +103,10 @@ func (s *Server) registerClient(name string, client *common.Client) bool {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
-	if _, ok := s.Clients[name]; !ok {
+	if _, ok := s.Clients[name]; !ok && name != s.name {
 		client.Name = name
 		s.Clients[client.Name] = client
-		client.SendString(common.Ok, "Welcome %v!\n", name)
+		client.SendString(common.MyName, "%v\n", s.name)
 		return true
 	}
 	client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name)
