@@ -4,7 +4,6 @@ import (
 	"flag"
 	"levi.ori/p2p-chat/common"
 
-	"levi.ori/p2p-chat/client"
 	"levi.ori/p2p-chat/server"
 )
 
@@ -12,8 +11,8 @@ func main() {
 	var name string
 	flag.StringVar(&name, "name", "", "Your client name")
 
-	var localServerPort int
-	flag.IntVar(&localServerPort, "server-port", server.DefaultPort, "local server port for listening")
+	var port int
+	flag.IntVar(&port, "port", server.DefaultPort, "local server port for listening")
 
 	var localInterfaceOnly bool
 	flag.BoolVar(&localInterfaceOnly, "local-iface", false, "listening only for local interface ("+server.InternalInterface+")")
@@ -24,19 +23,11 @@ func main() {
 		common.Logger.Fatalf("Name is missing please run with -name <name>")
 	}
 
-	serverStartChannel := make(chan bool)
-	serverApp := startServer(localServerPort, localInterfaceOnly, serverStartChannel)
+	serverApp := server.NewServer(port, localInterfaceOnly)
+	serverApp.RunServer()
+	//go serverApp.RunServer()
 
-	// waiting for server to up and running
-	<-serverStartChannel
-
-	clientApp := client.NewClient(name)
-	clientApp.MakeInternalConnection(localServerPort)
-	clientApp.Run(serverApp.InternalClient.Channel)
-}
-
-func startServer(port int, internalIface bool, startChannel chan bool) *server.Server {
-	app := server.NewServer(port, internalIface)
-	go app.RunServer(startChannel)
-	return &app
+	//clientApp := client.NewClient(name)
+	//clientApp.MakeInternalConnection(port)
+	//clientApp.Run(serverApp.InternalClient.Channel)
 }

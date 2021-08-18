@@ -9,11 +9,20 @@ import (
 	"levi.ori/p2p-chat/common"
 )
 
+var logger = common.Logger
+
+const (
+	InternalInterface = "127.0.0.1"
+	AllInterfaces     = "0.0.0.0"
+	DefaultPort       = 9090
+)
+
 type Server struct {
-	Listener       net.Listener
-	InternalClient *common.Client
-	Clients        map[string]*common.Client
-	locker         sync.RWMutex
+	Listener   net.Listener
+	Clients    map[string]*common.Client
+	InChannel  chan interface{}
+	OutChannel chan interface{}
+	locker     sync.RWMutex
 }
 
 func NewServer(port int, localInterfaceOnly bool) Server {
@@ -29,8 +38,10 @@ func NewServer(port int, localInterfaceOnly bool) Server {
 	}
 
 	return Server{
-		Listener: ln,
-		Clients:  make(map[string]*common.Client),
+		Listener:   ln,
+		Clients:    make(map[string]*common.Client),
+		InChannel:  make(chan interface{}),
+		OutChannel: make(chan interface{}),
 	}
 }
 
@@ -38,28 +49,25 @@ func (s *Server) Close() {
 	logger.Debug("Server:Close Called")
 
 	// 1. Close all clients
-	{
-		s.locker.Lock()
-		defer s.locker.Unlock()
-
-		for _, c := range s.Clients {
-			c.Close()
-		}
+	for _, c := range s.Clients {
+		c.Close()
 	}
 
-	// 2. Close the listener object
+	// 2. close channels
+	close(s.InChannel)
+	close(s.OutChannel)
+
+	// 3. Close the listener object
 	err := s.Listener.Close()
 	if err != nil {
 		logger.Errorf("Error occurred: %v", err)
 	}
 }
 
-func (s *Server) RunServer(serverStartChannel chan bool) {
+func (s *Server) RunServer() {
 	defer s.Close()
-	serverStartChannel <- true
 
 	logger.Infof("Start listening to connection %v", s.Listener.Addr().String())
-
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
@@ -75,25 +83,17 @@ func (s *Server) makeClientConnection(conn net.Conn) {
 
 	for {
 		command, data := ReadCommand(&client)
-		if command == common.InternalRegister {
-			logger.Debugf("Internal client connected %v|%v", command, data)
-			s.InternalClient = &client
-			client.SendString(common.Ok, "OK\n")
-			break
-		}
-
 		if command == common.Register && s.registerClient(data, &client) {
 			logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
-			if s.InternalClient != nil {
-				s.InternalClient.Channel <- common.InnerCommand{
-					Command: common.ClientConnect,
-					Data:    &client,
-				}
+			s.InChannel <- common.InnerCommand{
+				Command: common.ClientConnect,
+				Data:    &client,
 			}
 			break
 		}
 	}
 
+	// todo: do i need this?
 	go s.handleConnection(&client)
 }
 
@@ -102,11 +102,9 @@ func (s *Server) registerClient(name string, client *common.Client) bool {
 	defer s.locker.Unlock()
 
 	if _, ok := s.Clients[name]; !ok {
-
 		client.Name = name
 		s.Clients[client.Name] = client
 		client.SendString(common.Ok, "Welcome %v!\n", name)
-
 		return true
 	}
 	client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name)
@@ -140,7 +138,7 @@ func (s *Server) removeConnection(client *common.Client) {
 
 	delete(s.Clients, client.Name)
 
-	s.InternalClient.Channel <- common.InnerCommand{
+	s.InChannel <- common.InnerCommand{
 		Command: common.ClientDisconnect,
 		Data:    client,
 	}

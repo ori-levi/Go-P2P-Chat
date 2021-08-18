@@ -1,8 +1,7 @@
 package common
 
 const (
-	Register         = "REGISTER"
-	InternalRegister = "INTERNAL-REGISTER"
+	Register = "REGISTER"
 )
 
 const (
