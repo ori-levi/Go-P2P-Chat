@@ -19,7 +19,7 @@ type Server struct {
 func NewServer(port int, localInterfaceOnly bool) Server {
 	address := AllInterfaces
 	if localInterfaceOnly {
-		address = InternlInterface
+		address = InternalInterface
 	}
 
 	address = fmt.Sprintf("%v:%v", address, port)

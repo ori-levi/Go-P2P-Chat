@@ -19,7 +19,7 @@ func main() {
 	flag.StringVar(&remoteUrl, "remote", "", "remote server url (format: <ip>:<port>)")
 
 	var localInterfaceOnly bool
-	flag.BoolVar(&localInterfaceOnly, "local-iface", false, "listening only for local interface ("+server.InternlInterface+")")
+	flag.BoolVar(&localInterfaceOnly, "local-iface", false, "listening only for local interface ("+server.InternalInterface+")")
 
 	flag.Parse()
 
