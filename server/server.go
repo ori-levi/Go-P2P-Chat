@@ -78,7 +78,7 @@ func (s *Server) makeClientConnection(conn net.Conn) {
 		if command == common.InternalRegister {
 			logger.Debugf("Internal client connected %v|%v", command, data)
 			s.InternalClient = &client
-			client.SendString(common.OK, "OK\n")
+			client.SendString(common.Ok, "OK\n")
 			break
 		}
 
@@ -105,11 +105,11 @@ func (s *Server) registerClient(name string, client *common.Client) bool {
 
 		client.Name = name
 		s.Clients[client.Name] = client
-		client.SendString(common.OK, "Welcome %v!\n", name)
+		client.SendString(common.Ok, "Welcome %v!\n", name)
 
 		return true
 	}
-	client.SendString(common.USER_EXISTS, "%v is already exists, please choose another name: ", name)
+	client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name)
 	return false
 }
 

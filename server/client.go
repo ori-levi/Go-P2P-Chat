@@ -27,13 +27,13 @@ func (c *client) handleChannel() {
 		msg := rawMessage.(InnerCommand)
 		if msg.command == ClientDisconnect && msg.data != nil {
 			client := msg.data.(*client)
-			_, err := c.SendString(common.OK, "DISCONNECTED|%v|%v\n", client.Name, client.RawConnection.RemoteAddr().String())
+			_, err := c.SendString(common.Ok, "DISCONNECTED|%v|%v\n", client.Name, client.RawConnection.RemoteAddr().String())
 			if err != nil {
 				logger.Errorf("Error occurred: %v", err)
 			}
 		} else if msg.command == NewClient && msg.data != nil {
 			client := msg.data.(*client)
-			_, err := c.SendString(common.OK, "NewConnection|%v|%v\n", client.Name, client.RawConnection.RemoteAddr().String())
+			_, err := c.SendString(common.Ok, "NewConnection|%v|%v\n", client.Name, client.RawConnection.RemoteAddr().String())
 			if err != nil {
 				logger.Errorf("Error occurred: %v", err)
 			}
