@@ -115,9 +115,9 @@ func (s *Server) registerClient(name string, client *common.Client) bool {
 
 func ReadCommand(c *common.Client) (string, string) {
 	rawData, _ := c.ReadAllAsString()
-	parts := strings.SplitN(rawData, "|", 2)
+	parts := strings.SplitN(rawData, " ", 3)
 
-	return parts[0], parts[1]
+	return parts[1], parts[2]
 }
 
 func (s *Server) handleConnection(client *common.Client) {
@@ -142,6 +142,6 @@ func (s *Server) removeConnection(client *common.Client) {
 
 	s.InChannel <- common.InnerCommand{
 		Command: common.ClientDisconnect,
-		Data:    client,
+		Data:    client.Name,
 	}
 }
