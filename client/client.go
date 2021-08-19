@@ -10,8 +10,6 @@ import (
 	"sync"
 )
 
-var logger = common.NewLogger()
-
 var commands = map[string]func(*Client, []string){
 	"/pm":      pmCommand,
 	"/connect": connectCommand,
@@ -24,40 +22,32 @@ type Client struct {
 	reader      *bufio.Reader
 	locker      sync.RWMutex
 	serverPort  int
+	logChannel  chan string
 }
 
-func NewClient(name string, serverPort int) Client {
+func NewClient(name string, serverPort int, logChannel chan string) Client {
 	return Client{
-		Client:      common.NewClient(name, nil),
+		Client:      common.NewClient(name, nil, logChannel),
 		Connections: make(map[string]*common.Client),
 		reader:      bufio.NewReader(os.Stdin),
 		serverPort:  serverPort,
+		logChannel:  logChannel,
 	}
 }
 
-func (c *Client) Run(in chan interface{}) {
-	go c.handleConnectionsFromServer(in)
+func (c *Client) Run(serverNotification chan interface{}, input chan string) {
+	go c.handleConnectionsFromServer(serverNotification)
 
 	for {
-		fmt.Print(">>> ")
-		data, err := c.reader.ReadString('\n')
-		if err != nil {
-			logger.Fatalf("Failed to read from stdin, error: %v", err)
-		}
-
-		data = strings.Trim(data, " \n\r")
+		data := <-input
 		if strings.HasPrefix(data, "/") {
 			parts := strings.Split(data, " ")
 			command, arguments := parts[0], parts[1:]
 
-			if command == "/exit" {
-				break
-			}
-
 			if handler, ok := commands[command]; ok {
 				handler(c, arguments)
 			} else {
-				logger.Infof("Command %v is not recognized", command)
+				common.Info(c.logChannel, "Command %v is not recognized", command)
 			}
 		} else {
 			sendToAll(c, data)
@@ -72,7 +62,7 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 		if ok {
 			if msg.Command == common.ClientDisconnect {
 				clientName := msg.Data.(string)
-				logger.Debugf("client %v disconnected", clientName)
+				common.Debug(c.logChannel, "client %v disconnected", clientName)
 				c.removeConnection(clientName)
 			} else if msg.Command == common.ClientConnect {
 				parts := msg.Data.([]interface{})
@@ -81,7 +71,7 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 				remotePort := parts[2].(int)
 
 				addr := fmt.Sprintf("%v:%v", remoteAddr[0], remotePort)
-				logger.Debugf("client %v connect %v", clientName, addr)
+				common.Debug(c.logChannel, "client %v connect %v", clientName, addr)
 				c.makeConnection(addr)
 			}
 		}
@@ -94,7 +84,7 @@ func (c *Client) removeConnection(clientName string) {
 
 	client, ok := c.Connections[clientName]
 	if !ok {
-		logger.Debugf("Client %v is not exists", clientName)
+		common.Debug(c.logChannel, "Client %v is not exists", clientName)
 		return
 	}
 
@@ -111,31 +101,31 @@ func (c *Client) makeConnection(addr string) error {
 		return err
 	}
 
-	client := common.NewClient("", conn)
+	client := common.NewClient("", conn, c.logChannel)
 	ok := register(&client, c.Name, c.serverPort)
 	if ok {
-		logger.Debugf("Successfully connect to server")
+		common.Debug(c.logChannel, "Successfully connect to server")
 		c.Connections[client.Name] = &client
 		//go handleConnection(client)
 	}
 	return nil
 }
 
-func register(client *common.Client, name string, serverPort int) bool {
+func (c *Client) register(client *common.Client, name string, serverPort int) bool {
 	_, err := client.SendString(common.Ok, "%v %v %v", common.Register, name, serverPort)
 	if err != nil {
-		logger.Error("Failed to send command REGISTER")
+		common.Error(c.logChannel, "Failed to send command REGISTER")
 		return false
 	}
 
 	code, data, err := client.ReadAllAsString()
 	if err != nil {
-		logger.Errorf("Failed to establish connection: %v", err)
+		common.Error(c.logChannel, "Failed to establish connection: %v", err)
 		return false
 	}
 
 	if code != common.MyName {
-		logger.Errorf("Failed to establish connection - get remote name: %v", err)
+		common.Error(c.logChannel, "Failed to establish connection - get remote name: %v", err)
 		return false
 	}
 
@@ -154,12 +144,12 @@ func pmCommand(c *Client, arguments []string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	logger.Debugf("PM command %v", arguments)
+	common.Debug(c.logChannel, "PM command %v", arguments)
 
 	name := arguments[0]
 	conn, ok := c.Connections[name]
 	if !ok {
-		logger.Infof("Failed to send PM to %v, are you sure he is connected?", name)
+		common.Info(c.logChannel, "Failed to send PM to %v, are you sure he is connected?", name)
 		return
 	}
 
@@ -168,11 +158,11 @@ func pmCommand(c *Client, arguments []string) {
 }
 
 func connectCommand(c *Client, arguments []string) {
-	logger.Debugf("Connect command %v", arguments)
+	common.Debug(c.logChannel, "Connect command %v", arguments)
 
 	addr := strings.Join(arguments[:2], ":")
 	if err := c.makeConnection(addr); err != nil {
-		logger.Infof("Failed to connect to %v; error %v", addr, err)
+		common.Info(c.logChannel, "Failed to connect to %v; error %v", addr, err)
 	}
 }
 
@@ -180,7 +170,7 @@ func shellCommand(c *Client, arguments []string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	logger.Debugf("Shell command %v", arguments)
+	common.Debug(c.logChannel, "Shell command %v", arguments)
 }
 
 func sendToAll(c *Client, msg string) {

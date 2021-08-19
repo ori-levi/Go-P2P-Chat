@@ -3,9 +3,8 @@ package main
 import (
 	"flag"
 	"levi.ori/p2p-chat/client"
-	"levi.ori/p2p-chat/common"
-
 	"levi.ori/p2p-chat/server"
+	"log"
 )
 
 func main() {
@@ -21,12 +20,17 @@ func main() {
 	flag.Parse()
 
 	if len(name) == 0 {
-		common.Logger.Fatalf("Name is missing please run with -name <name>")
+		log.Fatalln("Name is missing please run with -name <name>")
 	}
 
-	serverApp := server.NewServer(name, port, localInterfaceOnly)
+	inputChannel := make(chan string)
+	logChannel := make(chan string)
+
+	serverApp := server.NewServer(name, port, localInterfaceOnly, logChannel)
 	go serverApp.RunServer()
 
-	clientApp := client.NewClient(name, port)
-	clientApp.Run(serverApp.InChannel)
+	clientApp := client.NewClient(name, port, logChannel)
+	go clientApp.Run(serverApp.InChannel, inputChannel)
+
+	uiMain(logChannel, serverApp.OutChannel, inputChannel)
 }
