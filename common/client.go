@@ -8,21 +8,21 @@ import (
 	"strings"
 )
 
-var logger = NewLogger()
-
 type Client struct {
 	RawConnection net.Conn
 	Reader        *bufio.Reader
 	Closed        bool
 	Channel       chan interface{}
 	Name          string
+	logChannel    chan string
 }
 
-func NewClient(name string, connection net.Conn) Client {
+func NewClient(name string, connection net.Conn, logChannel chan string) Client {
 	c := Client{
-		Closed:  false,
-		Channel: make(chan interface{}),
-		Name:    name,
+		Closed:     false,
+		Channel:    make(chan interface{}),
+		Name:       name,
+		logChannel: logChannel,
 	}
 	c.SetRawConnection(connection)
 	return c
@@ -41,7 +41,7 @@ func (c *Client) Close() {
 	close(c.Channel)
 	err := c.RawConnection.Close()
 	if err != nil {
-		logger.Errorf("Failed to close connection; %v", err)
+		Error(c.logChannel, "Failed to close connection; %v", err)
 	}
 }
 
@@ -57,7 +57,7 @@ func (c *Client) ReadAllAsString() (int, string, error) {
 
 	code, err := AsInt(parts[0])
 	if err != nil {
-		logger.Errorf("Failed to establish connection - get remote name: %v", err)
+		Error(c.logChannel, "Failed to parse code as int| %v", err)
 		return 0, "", err
 	}
 

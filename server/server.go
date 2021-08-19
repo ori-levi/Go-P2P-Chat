@@ -2,14 +2,13 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"sync"
 
 	"levi.ori/p2p-chat/common"
 )
-
-var logger = common.Logger
 
 const (
 	InternalInterface = "127.0.0.1"
@@ -22,12 +21,13 @@ type Server struct {
 	Listener   net.Listener
 	Clients    map[string]*common.Client
 	InChannel  chan interface{}
-	OutChannel chan interface{} // todo: might deleted
+	OutChannel chan string
 	locker     sync.RWMutex
 	port       int
+	logChannel chan string
 }
 
-func NewServer(name string, port int, localInterfaceOnly bool) Server {
+func NewServer(name string, port int, localInterfaceOnly bool, logChannel chan string) Server {
 	address := AllInterfaces
 	if localInterfaceOnly {
 		address = InternalInterface
@@ -36,7 +36,7 @@ func NewServer(name string, port int, localInterfaceOnly bool) Server {
 	address = fmt.Sprintf("%v:%v", address, port)
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		logger.Fatalf("Failed to start server on %v", address)
+		log.Fatalf("Failed to start server on %v", address)
 	}
 
 	return Server{
@@ -44,13 +44,14 @@ func NewServer(name string, port int, localInterfaceOnly bool) Server {
 		Listener:   ln,
 		Clients:    make(map[string]*common.Client),
 		InChannel:  make(chan interface{}),
-		OutChannel: make(chan interface{}),
+		OutChannel: make(chan string),
+		logChannel: logChannel,
 		port:       port,
 	}
 }
 
 func (s *Server) Close() {
-	logger.Debug("Server:Close Called")
+	common.Debug(s.logChannel, "Server:Close Called")
 
 	// 1. Close all clients
 	for _, c := range s.Clients {
@@ -64,18 +65,18 @@ func (s *Server) Close() {
 	// 3. Close the listener object
 	err := s.Listener.Close()
 	if err != nil {
-		logger.Errorf("Error occurred: %v", err)
+		common.Error(s.logChannel, "Error occurred: %v", err)
 	}
 }
 
 func (s *Server) RunServer() {
 	defer s.Close()
 
-	logger.Infof("Start listening to connection %v", s.Listener.Addr().String())
+	common.Info(s.logChannel, "Start listening to connection %v", s.Listener.Addr().String())
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
-			logger.Errorf("Failed to accept connection, error: %v", err)
+			common.Error(s.logChannel, "Failed to accept connection, error: %v", err)
 		}
 
 		go s.makeClientConnection(conn)
@@ -83,12 +84,12 @@ func (s *Server) RunServer() {
 }
 
 func (s *Server) makeClientConnection(conn net.Conn) {
-	client := common.NewClient("", conn)
+	client := common.NewClient("", conn, s.logChannel)
 
 	command, data := ReadCommand(&client)
 	if command == common.Register {
 		if serverPort, ok := s.registerClient(data, &client); ok && serverPort != s.port {
-			logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
+			common.Info(s.logChannel, "New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
 			s.InChannel <- common.InnerCommand{
 				Command: common.ClientConnect,
 				Data:    []interface{}{client.Name, client.RawConnection.RemoteAddr().String(), serverPort},
@@ -138,14 +139,14 @@ func (s *Server) handleConnection(client *common.Client) {
 	}
 
 	if err != nil {
-		logger.Errorf("failed to read from client, error: %v", err)
+		common.Error(s.logChannel, "failed to read from client, error: %v", err)
 	}
 
 	format := "%v: %v\n"
 	if code == common.PM {
 		format = fmt.Sprintf("(PM) %v", format)
 	}
-	fmt.Printf(format, client.Name, data)
+	s.OutChannel <- fmt.Sprintf(format, client.Name, data)
 
 	go s.handleConnection(client)
 }
