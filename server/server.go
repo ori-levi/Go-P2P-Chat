@@ -22,7 +22,7 @@ type Server struct {
 	Listener   net.Listener
 	Clients    map[string]*common.Client
 	InChannel  chan interface{}
-	OutChannel chan interface{}
+	OutChannel chan interface{} // todo: might deleted
 	locker     sync.RWMutex
 }
 
@@ -83,20 +83,17 @@ func (s *Server) RunServer() {
 func (s *Server) makeClientConnection(conn net.Conn) {
 	client := common.NewClient("", conn)
 
-	for {
-		command, data := ReadCommand(&client)
-		if command == common.Register && s.registerClient(data, &client) {
-			logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
-			s.InChannel <- common.InnerCommand{
-				Command: common.ClientConnect,
-				Data:    &client,
-			}
-			break
+	command, data := ReadCommand(&client)
+	if command == common.Register && s.registerClient(data, &client) {
+		logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
+		s.InChannel <- common.InnerCommand{
+			Command: common.ClientConnect,
+			Data:    &client,
 		}
+		go s.handleConnection(&client)
+	} else {
+		client.Close()
 	}
-
-	// todo: do i need this?
-	go s.handleConnection(&client)
 }
 
 func (s *Server) registerClient(name string, client *common.Client) bool {
@@ -114,14 +111,14 @@ func (s *Server) registerClient(name string, client *common.Client) bool {
 }
 
 func ReadCommand(c *common.Client) (string, string) {
-	rawData, _ := c.ReadAllAsString()
-	parts := strings.SplitN(rawData, " ", 3)
+	_, rawData, _ := c.ReadAllAsString()
+	parts := strings.SplitN(rawData, " ", 2)
 
-	return parts[1], parts[2]
+	return parts[0], parts[1]
 }
 
 func (s *Server) handleConnection(client *common.Client) {
-	_, err := client.ReadAllAsString()
+	_, data, err := client.ReadAllAsString()
 	if client.Closed {
 		s.removeConnection(client)
 		return
@@ -130,6 +127,8 @@ func (s *Server) handleConnection(client *common.Client) {
 	if err != nil {
 		logger.Errorf("failed to read from client, error: %v", err)
 	}
+
+	fmt.Printf("%v: %v\n", client.Name, data)
 
 	go s.handleConnection(client)
 }

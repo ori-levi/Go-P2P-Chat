@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -45,14 +46,22 @@ func (c *Client) Close() {
 	}
 }
 
-func (c *Client) ReadAllAsString() (string, error) {
+func (c *Client) ReadAllAsString() (int, string, error) {
 	data, err := c.Reader.ReadString('\n')
 	if err != nil {
 		c.Closed = err == io.EOF
-		return "", err
+		return 0, "", err
 	}
 
-	return strings.Trim(data, "\r\n"), nil
+	data = strings.Trim(data, "\r\n")
+	parts := strings.SplitN(data, " ", 2)
+	code, err := strconv.Atoi(parts[0])
+	if err != nil {
+		logger.Errorf("Failed to establish connection - get remote name: %v", err)
+		return 0, "", err
+	}
+
+	return code, strings.Join(parts[1:], " "), nil
 }
 
 func (c *Client) SendString(code int, format string, args ...interface{}) (int, error) {

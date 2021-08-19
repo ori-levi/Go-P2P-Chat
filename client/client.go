@@ -6,7 +6,6 @@ import (
 	"levi.ori/p2p-chat/common"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -122,19 +121,18 @@ func register(client *common.Client, name string) bool {
 		return false
 	}
 
-	data, err := client.ReadAllAsString()
+	code, data, err := client.ReadAllAsString()
 	if err != nil {
 		logger.Errorf("Failed to establish connection: %v", err)
 		return false
 	}
 
-	parts := strings.SplitN(data, " ", 2)
-	if code, err := strconv.Atoi(parts[0]); err != nil || code != common.MyName {
+	if code != common.MyName {
 		logger.Errorf("Failed to establish connection - get remote name: %v", err)
 		return false
 	}
 
-	client.Name = parts[1]
+	client.Name = data
 	return true
 }
 
