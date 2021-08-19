@@ -9,5 +9,5 @@ import (
 var Logger = NewLogger()
 
 func NewLogger() *log.Logger {
-	return log.New(os.Stderr).WithColor().WithDebug().WithTimestamp()
+	return log.New(os.Stderr).WithColor().WithDebug().WithTimestamp().Quiet()
 }
