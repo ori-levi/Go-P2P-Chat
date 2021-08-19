@@ -138,6 +138,7 @@ func (s *Server) removeConnection(client *common.Client) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
+	client.Close()
 	delete(s.Clients, client.Name)
 
 	s.InChannel <- common.InnerCommand{

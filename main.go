@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"levi.ori/p2p-chat/client"
 	"levi.ori/p2p-chat/common"
 
 	"levi.ori/p2p-chat/server"
@@ -23,11 +24,9 @@ func main() {
 		common.Logger.Fatalf("Name is missing please run with -name <name>")
 	}
 
-	serverApp := server.NewServer(port, localInterfaceOnly)
-	serverApp.RunServer()
-	//go serverApp.RunServer()
+	serverApp := server.NewServer(name, port, localInterfaceOnly)
+	go serverApp.RunServer()
 
-	//clientApp := client.NewClient(name)
-	//clientApp.MakeInternalConnection(port)
-	//clientApp.Run(serverApp.InternalClient.Channel)
+	clientApp := client.NewClient(name)
+	clientApp.Run(serverApp.InChannel, serverApp.OutChannel)
 }

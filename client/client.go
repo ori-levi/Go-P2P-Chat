@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"levi.ori/p2p-chat/common"
 	"net"
-	"net/textproto"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
 
 var logger = common.NewLogger()
 
-var commands = map[string]func([]string){
+var commands = map[string]func(*Client, []string){
 	"/pm":      pmCommand,
 	"/connect": connectCommand,
 	"/shell":   shellCommand,
@@ -21,21 +21,21 @@ var commands = map[string]func([]string){
 
 type Client struct {
 	common.Client
-	Connection []net.Conn
-	reader     *bufio.Reader
-	locker     sync.RWMutex
+	Connections map[string]*common.Client
+	reader      *bufio.Reader
+	locker      sync.RWMutex
 }
 
 func NewClient(name string) Client {
 	return Client{
-		Client:     common.NewClient(name, nil),
-		Connection: make([]net.Conn, 10),
-		reader:     bufio.NewReader(os.Stdin),
+		Client:      common.NewClient(name, nil),
+		Connections: make(map[string]*common.Client),
+		reader:      bufio.NewReader(os.Stdin),
 	}
 }
 
-func (c *Client) Run(ic chan interface{}) {
-	//go c.handleInternalChannel(ic)
+func (c *Client) Run(in chan interface{}, out chan interface{}) {
+	go c.handleConnectionsFromServer(in)
 
 	for {
 		fmt.Print(">>> ")
@@ -54,110 +54,135 @@ func (c *Client) Run(ic chan interface{}) {
 			}
 
 			if handler, ok := commands[command]; ok {
-				handler(arguments)
+				handler(c, arguments)
 			} else {
 				logger.Infof("Command %v is not recognized", command)
 			}
 		} else {
-			c.sendToAll(data)
+			sendToAll(c, data)
 		}
 	}
 }
 
-func (c *Client) handleInternalChannel(ic chan interface{}) {
+func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 	for {
 		rawMessage := <-ic
 		msg, ok := rawMessage.(common.InnerCommand)
 		if ok {
 			if msg.Command == common.ClientDisconnect {
-				client := msg.Data.(*common.Client)
-				logger.Debugf("client %v disconnected", client.RawConnection.RemoteAddr().String())
+				clientName := msg.Data.(string)
+				logger.Debugf("client %v disconnected", clientName)
+				//c.removeConnection(clientName)
 			} else if msg.Command == common.ClientConnect {
 				client := msg.Data.(*common.Client)
-				logger.Debugf("client %v connect", client.RawConnection.RemoteAddr().String())
+				logger.Debugf("client %v connect", client.Name)
+				//c.makeConnection(client)
 			}
 		}
 	}
 }
 
-func (c *Client) MakeInternalConnection(serverPort int) {
-	addr := fmt.Sprintf("127.0.0.1:%v", serverPort)
+func (c *Client) removeConnection(clientName string) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
 
-	err := c.handleConnection(addr, true)
-	if err != nil {
-		logger.Fatalf("Failed to establish internal connection; %v", err)
+	client, ok := c.Connections[clientName]
+	if !ok {
+		logger.Debugf("Client %v is not exists", clientName)
+		return
 	}
+
+	client.Close()
+	delete(c.Connections, clientName)
 }
 
-func (c *Client) handleConnection(addr string, internal bool) error {
-	conn, err := textproto.Dial("tcp", addr)
+func (c *Client) makeConnection(addr string) error {
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
 
-	for {
-		if len(c.Name) == 0 {
-			fmt.Print("Please enter your name: ")
-			c.Name, _ = c.reader.ReadString('\n')
-		}
-
-		id := register(conn, c.Name, internal)
-		conn.StartResponse(id)
-		defer conn.EndResponse(id)
-
-		code, message, err := conn.ReadCodeLine(200)
-		if err == nil {
-			logger.Debugf("Successfully connect to server")
-			break
-		}
-
-		fmt.Printf("%v %v", code, message)
-		c.Name, _ = c.reader.ReadString('\n')
+	client := common.NewClient("", conn)
+	ok := register(&client, c.Name)
+	if ok {
+		logger.Debugf("Successfully connect to server")
+		c.Connections[client.Name] = &client
+		//go handleConnection(client)
 	}
-
 	return nil
 }
 
-func register(conn *textproto.Conn, name string, internal bool) uint {
-	cmd := common.Register
-	if internal {
-		cmd = common.InternalRegister
+func register(client *common.Client, name string) bool {
+	_, err := client.SendString(common.Ok, "%v %v", common.Register, name)
+	if err != nil {
+		logger.Error("Failed to send command REGISTER")
+		return false
 	}
 
-	id, err := conn.Cmd("%v|%v", cmd, name)
+	data, err := client.ReadAllAsString()
 	if err != nil {
-		logger.Fatalf("Failed to send command REGISTER")
+		logger.Errorf("Failed to establish connection: %v", err)
+		return false
 	}
-	return id
+
+	parts := strings.SplitN(data, " ", 2)
+	if code, err := strconv.Atoi(parts[0]); err != nil || code != common.MyName {
+		logger.Errorf("Failed to establish connection - get remote name: %v", err)
+		return false
+	}
+
+	client.Name = parts[1]
+	return true
 }
 
 func (c *Client) Close() {
 	c.Client.Close()
-	for _, client := range c.Connection {
-		err := client.Close()
-		if err != nil {
-			logger.Errorf("Failed to close connection; %v", err)
-		}
+	for _, client := range c.Connections {
+		client.Close()
 	}
 }
 
-func pmCommand(arguments []string) {
-	logger.Debugf("PM command %v", arguments)
-}
-
-func connectCommand(arguments []string) {
-	logger.Debugf("Connect command %v", arguments)
-}
-
-func shellCommand(arguments []string) {
-	logger.Debugf("Shell command %v", arguments)
-}
-
-func (c *Client) sendToAll(msg string) {
+func pmCommand(c *Client, arguments []string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	for _, conn := range c.Connection {
-		conn.Write([]byte(msg))
+	logger.Debugf("PM command %v", arguments)
+
+	name := arguments[0]
+	conn, ok := c.Connections[name]
+	if !ok {
+		logger.Infof("Failed to send PM to %v, are you sure he is connected?", name)
+		return
+	}
+
+	msg := strings.Join(arguments[1:], " ")
+	conn.SendString(common.Ok, msg)
+}
+
+func connectCommand(c *Client, arguments []string) {
+	logger.Debugf("Connect command %v", arguments)
+
+	addr := strings.Join(arguments[:2], ":")
+	if err := c.makeConnection(addr); err != nil {
+		logger.Infof("Failed to connect to %v; error %v", addr, err)
+	}
+}
+
+func shellCommand(c *Client, arguments []string) {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	logger.Debugf("Shell command %v", arguments)
+}
+
+func sendToAll(c *Client, msg string) {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	for _, conn := range c.Connections {
+		conn.SendString(common.Ok, msg)
 	}
 }
