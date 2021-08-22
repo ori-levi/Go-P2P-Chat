@@ -172,6 +172,35 @@ func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, f
 	}
 }
 
+func handleUsersViewWithChannel(g *gocui.Gui, channel chan string) {
+	for {
+		rawUsers := <-channel
+
+		g.Update(func(gui *gocui.Gui) error {
+			v, err := g.View("users")
+			if err != nil {
+				return err
+			}
+
+			v.Clear()
+			if err := v.SetCursor(0, 0); err != nil {
+				return err
+			}
+			if err := v.SetOrigin(0, 0); err != nil {
+				return err
+			}
+
+			users := strings.Split(rawUsers, ",")
+			for index, user := range users {
+				if _, err := fmt.Fprintf(v, "%v. %v\r\n", index+1, user); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+}
+
 func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 	return func(g *gocui.Gui, v *gocui.View) error {
 		reader := bufio.NewReader(v)
@@ -219,7 +248,7 @@ func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 	}
 }
 
-func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan string) {
+func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan string, usersChannel chan string) {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		log.Panicln(err)
@@ -241,6 +270,7 @@ func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan s
 
 	go handleViewWithChannel(g, logChannel, "log", logFormatter)
 	go handleViewWithChannel(g, chatChannel, "chat", chatFormatter)
+	go handleUsersViewWithChannel(g, usersChannel)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)

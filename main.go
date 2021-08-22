@@ -25,12 +25,13 @@ func main() {
 
 	inputChannel := make(chan string)
 	logChannel := make(chan string)
+	usersChannel := make(chan string)
 
 	serverApp := server.NewServer(name, port, localInterfaceOnly, logChannel)
 	go serverApp.RunServer()
 
 	clientApp := client.NewClient(name, port, logChannel)
-	go clientApp.Run(serverApp.InChannel, inputChannel)
+	go clientApp.Run(serverApp.InChannel, inputChannel, usersChannel)
 
-	uiMain(logChannel, serverApp.OutChannel, inputChannel)
+	uiMain(logChannel, serverApp.OutChannel, inputChannel, usersChannel)
 }

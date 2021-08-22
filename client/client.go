@@ -35,8 +35,8 @@ func NewClient(name string, serverPort int, logChannel chan string) Client {
 	}
 }
 
-func (c *Client) Run(serverNotification chan interface{}, input chan string) {
-	go c.handleConnectionsFromServer(serverNotification)
+func (c *Client) Run(serverNotification chan interface{}, input chan string, users chan string) {
+	go c.handleConnectionsFromServer(serverNotification, users)
 
 	for {
 		data := <-input
@@ -55,7 +55,19 @@ func (c *Client) Run(serverNotification chan interface{}, input chan string) {
 	}
 }
 
-func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
+func (c *Client) getUsers() string {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	names := make([]string, 0)
+	for name := range c.Connections {
+		names = append(names, name)
+	}
+
+	return strings.Join(names, ",")
+}
+
+func (c *Client) handleConnectionsFromServer(ic chan interface{}, users chan string) {
 	for {
 		rawMessage := <-ic
 		msg, ok := rawMessage.(common.InnerCommand)
@@ -64,6 +76,7 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 				clientName := msg.Data.(string)
 				common.Debug(c.logChannel, "client %v disconnected", clientName)
 				c.removeConnection(clientName)
+				users <- c.getUsers()
 			} else if msg.Command == common.ClientConnect {
 				parts := msg.Data.([]interface{})
 				clientName := parts[0].(string)
@@ -74,6 +87,8 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 				common.Debug(c.logChannel, "client %v connect %v", clientName, addr)
 				if err := c.makeConnection(addr); err != nil {
 					common.Error(c.logChannel, "Failed to make connection | %v", err)
+				} else {
+					users <- c.getUsers()
 				}
 			}
 		}
