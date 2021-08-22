@@ -23,17 +23,19 @@ type Client struct {
 	Connections map[string]*common.Client
 	reader      *bufio.Reader
 	locker      sync.RWMutex
+	serverPort  int
 }
 
-func NewClient(name string) Client {
+func NewClient(name string, serverPort int) Client {
 	return Client{
 		Client:      common.NewClient(name, nil),
 		Connections: make(map[string]*common.Client),
 		reader:      bufio.NewReader(os.Stdin),
+		serverPort:  serverPort,
 	}
 }
 
-func (c *Client) Run(in chan interface{}, out chan interface{}) {
+func (c *Client) Run(in chan interface{}) {
 	go c.handleConnectionsFromServer(in)
 
 	for {
@@ -71,11 +73,16 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 			if msg.Command == common.ClientDisconnect {
 				clientName := msg.Data.(string)
 				logger.Debugf("client %v disconnected", clientName)
-				//c.removeConnection(clientName)
+				c.removeConnection(clientName)
 			} else if msg.Command == common.ClientConnect {
-				client := msg.Data.(*common.Client)
-				logger.Debugf("client %v connect", client.Name)
-				//c.makeConnection(client)
+				parts := msg.Data.([]interface{})
+				clientName := parts[0].(string)
+				remoteAddr := strings.Split(parts[1].(string), ":")
+				remotePort := parts[2].(int)
+
+				addr := fmt.Sprintf("%v:%v", remoteAddr[0], remotePort)
+				logger.Debugf("client %v connect %v", clientName, addr)
+				c.makeConnection(addr)
 			}
 		}
 	}
@@ -105,7 +112,7 @@ func (c *Client) makeConnection(addr string) error {
 	}
 
 	client := common.NewClient("", conn)
-	ok := register(&client, c.Name)
+	ok := register(&client, c.Name, c.serverPort)
 	if ok {
 		logger.Debugf("Successfully connect to server")
 		c.Connections[client.Name] = &client
@@ -114,8 +121,8 @@ func (c *Client) makeConnection(addr string) error {
 	return nil
 }
 
-func register(client *common.Client, name string) bool {
-	_, err := client.SendString(common.Ok, "%v %v", common.Register, name)
+func register(client *common.Client, name string, serverPort int) bool {
+	_, err := client.SendString(common.Ok, "%v %v %v", common.Register, name, serverPort)
 	if err != nil {
 		logger.Error("Failed to send command REGISTER")
 		return false

@@ -27,6 +27,6 @@ func main() {
 	serverApp := server.NewServer(name, port, localInterfaceOnly)
 	go serverApp.RunServer()
 
-	clientApp := client.NewClient(name)
-	clientApp.Run(serverApp.InChannel, serverApp.OutChannel)
+	clientApp := client.NewClient(name, port)
+	clientApp.Run(serverApp.InChannel)
 }

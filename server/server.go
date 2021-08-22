@@ -24,6 +24,7 @@ type Server struct {
 	InChannel  chan interface{}
 	OutChannel chan interface{} // todo: might deleted
 	locker     sync.RWMutex
+	port       int
 }
 
 func NewServer(name string, port int, localInterfaceOnly bool) Server {
@@ -44,6 +45,7 @@ func NewServer(name string, port int, localInterfaceOnly bool) Server {
 		Clients:    make(map[string]*common.Client),
 		InChannel:  make(chan interface{}),
 		OutChannel: make(chan interface{}),
+		port:       port,
 	}
 }
 
@@ -84,30 +86,41 @@ func (s *Server) makeClientConnection(conn net.Conn) {
 	client := common.NewClient("", conn)
 
 	command, data := ReadCommand(&client)
-	if command == common.Register && s.registerClient(data, &client) {
-		logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
-		s.InChannel <- common.InnerCommand{
-			Command: common.ClientConnect,
-			Data:    &client,
+	if command == common.Register {
+		if serverPort, ok := s.registerClient(data, &client); ok && serverPort != s.port {
+			logger.Infof("New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
+			s.InChannel <- common.InnerCommand{
+				Command: common.ClientConnect,
+				Data:    []interface{}{client.Name, client.RawConnection.RemoteAddr().String(), serverPort},
+			}
+			go s.handleConnection(&client)
 		}
-		go s.handleConnection(&client)
 	} else {
 		client.Close()
 	}
 }
 
-func (s *Server) registerClient(name string, client *common.Client) bool {
+func (s *Server) registerClient(data string, client *common.Client) (int, bool) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
+
+	parts := strings.Split(data, " ")
+	lastIndex := len(parts) - 1
+	name := strings.Join(parts[:lastIndex], " ")
+	remotePort, err := common.AsInt(parts[lastIndex])
+	if err != nil {
+		logger.Errorf("Failed to parse remote port| %v", err)
+		return 0, false
+	}
 
 	if _, ok := s.Clients[name]; !ok && name != s.name {
 		client.Name = name
 		s.Clients[client.Name] = client
 		client.SendString(common.MyName, "%v\n", s.name)
-		return true
+		return remotePort, true
 	}
 	client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name)
-	return false
+	return 0, false
 }
 
 func ReadCommand(c *common.Client) (string, string) {
