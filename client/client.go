@@ -102,7 +102,7 @@ func (c *Client) makeConnection(addr string) error {
 	}
 
 	client := common.NewClient("", conn, c.logChannel)
-	ok := register(&client, c.Name, c.serverPort)
+	ok := c.register(&client, c.Name, c.serverPort)
 	if ok {
 		common.Debug(c.logChannel, "Successfully connect to server")
 		c.Connections[client.Name] = &client
