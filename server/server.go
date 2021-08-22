@@ -110,7 +110,7 @@ func (s *Server) registerClient(data string, client *common.Client) (int, bool) 
 	name := strings.Join(parts[:lastIndex], " ")
 	remotePort, err := common.AsInt(parts[lastIndex])
 	if err != nil {
-		logger.Errorf("Failed to parse remote port| %v", err)
+		common.Error(s.logChannel, "Failed to parse remote port| %v", err)
 		return 0, false
 	}
 
