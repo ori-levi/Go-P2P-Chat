@@ -157,7 +157,7 @@ func pmCommand(c *Client, arguments []string) {
 	}
 
 	msg := strings.Join(arguments[1:], " ")
-	conn.SendString(common.Ok, msg)
+	conn.SendString(common.PM, msg)
 }
 
 func connectCommand(c *Client, arguments []string) {

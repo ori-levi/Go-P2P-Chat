@@ -118,7 +118,7 @@ func ReadCommand(c *common.Client) (string, string) {
 }
 
 func (s *Server) handleConnection(client *common.Client) {
-	_, data, err := client.ReadAllAsString()
+	code, data, err := client.ReadAllAsString()
 	if client.Closed {
 		s.removeConnection(client)
 		return
@@ -128,7 +128,11 @@ func (s *Server) handleConnection(client *common.Client) {
 		logger.Errorf("failed to read from client, error: %v", err)
 	}
 
-	fmt.Printf("%v: %v\n", client.Name, data)
+	format := "%v: %v\n"
+	if code == common.PM {
+		format = fmt.Sprintf("(PM) %v", format)
+	}
+	fmt.Printf(format, client.Name, data)
 
 	go s.handleConnection(client)
 }
