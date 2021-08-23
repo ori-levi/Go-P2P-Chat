@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"levi.ori/p2p-chat/common"
 	"log"
 	"strings"
 
@@ -21,30 +22,16 @@ type ViewDetails struct {
 	data       []string
 }
 
-const (
-	ResetColor  = "\033[0m"
-	Black       = "\033[0;30m"
-	Red         = "\033[0;31m"
-	Green       = "\033[0;32m"
-	Gold        = "\033[0;33m"
-	Blue        = "\033[0;34m"
-	Purple      = "\033[0;35m"
-	Cyan        = "\033[0;36m"
-	LightGray   = "\033[0;37m"
-	DarkGray    = "\033[1;30m"
-	LightRed    = "\033[1;31m"
-	LightGreen  = "\033[1;32m"
-	Yellow      = "\033[1;33m"
-	LightBlue   = "\033[1;34m"
-	LightPurple = "\033[1;35m"
-	LightCyan   = "\033[1;36m"
-)
-
 var (
-	logColors = map[string]string{
-		"[INFO":  LightPurple,
-		"[DEBUG": LightCyan,
-		"[ERROR": LightRed,
+	chatColors = map[string]common.Color{
+		"(PM)":    common.Gold,
+		"(SHELL)": common.Cyan,
+	}
+
+	logColors = map[string]common.Color{
+		"[INFO":  common.LightPurple,
+		"[DEBUG": common.LightCyan,
+		"[ERROR": common.LightRed,
 	}
 
 	views = []ViewDetails{
@@ -127,10 +114,10 @@ func layout(g *gocui.Gui) error {
 				return err
 			}
 
-			v.Title = details.Title
-			v.Editable = details.Editable
-			v.Wrap = details.Wrap
-			v.Autoscroll = details.Autoscroll
+			title := w.Title
+			if w.Name == "input" {
+				title = fmt.Sprint(name, ", ", title)
+			}
 
 			for _, d := range details.data {
 				if _, err := fmt.Fprintln(v, d); err != nil {
@@ -196,12 +183,12 @@ func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 				return err
 			}
 
-			color := ResetColor
+			color := common.ResetColor
 			if strings.HasPrefix(data, "/") {
-				color = LightGreen
+				color = common.LightGreen
 			}
 
-			if _, err := fmt.Fprintln(vlog, color, "ME:", data, ResetColor); err != nil {
+			if _, err := common.ColorFprintln(vlog, color, "ME:", data); err != nil {
 				return err
 			}
 
@@ -239,8 +226,8 @@ func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan s
 		log.Panicln(err)
 	}
 
-	go handleViewWithChannel(g, logChannel, "log", logFormatter)
-	go handleViewWithChannel(g, chatChannel, "chat", chatFormatter)
+	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors), nil)
+	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors), shellPrompt)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
@@ -256,14 +243,17 @@ func chatFormatter(s string) string {
 	return fmt.Sprint(color, s, ResetColor)
 }
 
-func logFormatter(s string) string {
-	finalColor := ResetColor
-	for prefix, color := range logColors {
-		if strings.HasPrefix(s, prefix) {
-			finalColor = color
-			break
-		}
-	}
+func prefixFormatter(prefixToColor map[string]common.Color) func(string) string {
+	return func(s string) string {
 
-	return fmt.Sprint(finalColor, s, ResetColor)
+		finalColor := common.ResetColor
+		for prefix, color := range prefixToColor {
+			if strings.HasPrefix(s, prefix) {
+				finalColor = color
+				break
+			}
+		}
+
+		return common.ColorSprintf(finalColor, s)
+	}
 }

@@ -27,7 +27,7 @@ type Client struct {
 
 func NewClient(name string, serverPort int, logChannel chan string) Client {
 	return Client{
-		Client:      common.NewClient(name, nil, logChannel),
+		Client:      common.NewClient(name, nil, logChannel, common.ResetColor),
 		Connections: make(map[string]*common.Client),
 		reader:      bufio.NewReader(os.Stdin),
 		serverPort:  serverPort,
@@ -103,7 +103,7 @@ func (c *Client) makeConnection(addr string) error {
 		return err
 	}
 
-	client := common.NewClient("", conn, c.logChannel)
+	client := common.NewClient("", conn, c.logChannel, common.ResetColor)
 	ok := c.register(&client, c.Name, c.serverPort)
 	if ok {
 		common.Debug(c.logChannel, "Successfully connect to server")

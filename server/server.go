@@ -84,7 +84,7 @@ func (s *Server) RunServer() {
 }
 
 func (s *Server) makeClientConnection(conn net.Conn) {
-	client := common.NewClient("", conn, s.logChannel)
+	client := common.NewClient("", conn, s.logChannel, common.RandomColor())
 
 	command, data := ReadCommand(&client)
 	if command == common.Register {
@@ -146,11 +146,15 @@ func (s *Server) handleConnection(client *common.Client) {
 		common.Error(s.logChannel, "failed to read from client, error: %v", err)
 	}
 
-	format := "%v: %v\n"
+	name := client.Name
 	if code == common.PM {
-		format = fmt.Sprintf("(PM) %v", format)
+		name = fmt.Sprintf("(PM) %v", name)
+	} else if code == common.Shell {
+		name = fmt.Sprintf("(SHELL) %v", name)
 	}
-	s.OutChannel <- fmt.Sprintf(format, client.Name, data)
+
+	name = common.ColorSprintf(client.Color, "%v:", name)
+	s.OutChannel <- fmt.Sprintf("%v %v", name, data)
 
 	go s.handleConnection(client)
 }
