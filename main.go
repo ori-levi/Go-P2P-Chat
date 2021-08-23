@@ -32,5 +32,5 @@ func main() {
 	clientApp := client.NewClient(name, port, logChannel)
 	go clientApp.Run(serverApp.InChannel, inputChannel)
 
-	uiMain(logChannel, serverApp.OutChannel, inputChannel)
+	uiMain(name, logChannel, serverApp.OutChannel, inputChannel)
 }
