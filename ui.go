@@ -21,7 +21,32 @@ type ViewDetails struct {
 	data       []string
 }
 
+const (
+	ResetColor  = "\033[0m"
+	Black       = "\033[0;30m"
+	Red         = "\033[0;31m"
+	Green       = "\033[0;32m"
+	Gold        = "\033[0;33m"
+	Blue        = "\033[0;34m"
+	Purple      = "\033[0;35m"
+	Cyan        = "\033[0;36m"
+	LightGray   = "\033[0;37m"
+	DarkGray    = "\033[1;30m"
+	LightRed    = "\033[1;31m"
+	LightGreen  = "\033[1;32m"
+	Yellow      = "\033[1;33m"
+	LightBlue   = "\033[1;34m"
+	LightPurple = "\033[1;35m"
+	LightCyan   = "\033[1;36m"
+)
+
 var (
+	logColors = map[string]string{
+		"[INFO":  LightPurple,
+		"[DEBUG": LightCyan,
+		"[ERROR": LightRed,
+	}
+
 	views = []ViewDetails{
 		{
 			Name:       "input",
@@ -125,7 +150,7 @@ func quit(*gocui.Gui, *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string) {
+func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, formatter func(string) string) {
 	for {
 		msg := <-channel
 
@@ -136,6 +161,9 @@ func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string) {
 			}
 
 			msg := strings.Trim(msg, "\r\n")
+			if formatter != nil {
+				msg = formatter(msg)
+			}
 			if _, err := fmt.Fprintln(v, msg); err != nil {
 				return err
 			}
@@ -168,7 +196,12 @@ func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 				return err
 			}
 
-			if _, err := fmt.Fprintln(vlog, "ME:", data); err != nil {
+			color := ResetColor
+			if strings.HasPrefix(data, "/") {
+				color = LightGreen
+			}
+
+			if _, err := fmt.Fprintln(vlog, color, "ME:", data, ResetColor); err != nil {
 				return err
 			}
 
@@ -206,10 +239,31 @@ func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan s
 		log.Panicln(err)
 	}
 
-	go handleViewWithChannel(g, logChannel, "log")
-	go handleViewWithChannel(g, chatChannel, "chat")
+	go handleViewWithChannel(g, logChannel, "log", logFormatter)
+	go handleViewWithChannel(g, chatChannel, "chat", chatFormatter)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
+}
+
+func chatFormatter(s string) string {
+	color := ResetColor
+	if strings.HasPrefix(s, "(PM)") {
+		color = Gold
+	}
+
+	return fmt.Sprint(color, s, ResetColor)
+}
+
+func logFormatter(s string) string {
+	finalColor := ResetColor
+	for prefix, color := range logColors {
+		if strings.HasPrefix(s, prefix) {
+			finalColor = color
+			break
+		}
+	}
+
+	return fmt.Sprint(finalColor, s, ResetColor)
 }
