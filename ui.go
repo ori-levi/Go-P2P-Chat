@@ -108,7 +108,9 @@ func layout(g *gocui.Gui) error {
 			v.Autoscroll = details.Autoscroll
 
 			for _, d := range details.data {
-				fmt.Fprintln(v, d)
+				if _, err := fmt.Fprintln(v, d); err != nil {
+					return err
+				}
 			}
 
 			if _, err = setCurrentViewOnTop(g, "input"); err != nil {
