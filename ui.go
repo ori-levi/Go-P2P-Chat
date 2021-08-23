@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"levi.ori/p2p-chat/common"
 	"log"
 	"strings"
 
@@ -22,7 +23,18 @@ type ViewDetails struct {
 }
 
 var (
-	views = []ViewDetails{
+	chatColors = map[string]common.Color{
+		"(PM)":    common.Gold,
+		"(SHELL)": common.Cyan,
+	}
+
+	logColors = map[string]common.Color{
+		"[INFO":  common.LightPurple,
+		"[DEBUG": common.LightCyan,
+		"[ERROR": common.LightRed,
+	}
+
+	widgets = []Widget{
 		{
 			Name:       "input",
 			Title:      "What's On Your Mind?",
@@ -125,7 +137,7 @@ func quit(*gocui.Gui, *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string) {
+func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, formatter func(string) string) {
 	for {
 		msg := <-channel
 
@@ -136,6 +148,9 @@ func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string) {
 			}
 
 			msg := strings.Trim(msg, "\r\n")
+			if formatter != nil {
+				msg = formatter(msg)
+			}
 			if _, err := fmt.Fprintln(v, msg); err != nil {
 				return err
 			}
@@ -168,7 +183,12 @@ func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 				return err
 			}
 
-			if _, err := fmt.Fprintln(vlog, "ME:", data); err != nil {
+			color := common.ResetColor
+			if strings.HasPrefix(data, "/") {
+				color = common.LightGreen
+			}
+
+			if _, err := common.ColorFprintln(vlog, color, "ME:", data); err != nil {
 				return err
 			}
 
@@ -206,10 +226,25 @@ func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan s
 		log.Panicln(err)
 	}
 
-	go handleViewWithChannel(g, logChannel, "log")
-	go handleViewWithChannel(g, chatChannel, "chat")
+	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors))
+	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors))
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
+	}
+}
+
+func prefixFormatter(prefixToColor map[string]common.Color) func(string) string {
+	return func(s string) string {
+
+		finalColor := common.ResetColor
+		for prefix, color := range prefixToColor {
+			if strings.HasPrefix(s, prefix) {
+				finalColor = color
+				break
+			}
+		}
+
+		return common.ColorSprintf(finalColor, s)
 	}
 }

@@ -15,14 +15,16 @@ type Client struct {
 	Channel       chan interface{}
 	Name          string
 	logChannel    chan string
+	Color
 }
 
-func NewClient(name string, connection net.Conn, logChannel chan string) Client {
+func NewClient(name string, connection net.Conn, logChannel chan string, color Color) Client {
 	c := Client{
 		Closed:     false,
 		Channel:    make(chan interface{}),
 		Name:       name,
 		logChannel: logChannel,
+		Color:      color,
 	}
 	c.SetRawConnection(connection)
 	return c
