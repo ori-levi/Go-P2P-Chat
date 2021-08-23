@@ -117,10 +117,14 @@ func (s *Server) registerClient(data string, client *common.Client) (int, bool) 
 	if _, ok := s.Clients[name]; !ok && name != s.name {
 		client.Name = name
 		s.Clients[client.Name] = client
-		client.SendString(common.MyName, "%v\n", s.name)
+		if _, err := client.SendString(common.MyName, "%v\n", s.name); err != nil {
+			common.Error(s.logChannel, "Failed to notify new user my name | %v", err)
+		}
 		return remotePort, true
 	}
-	client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name)
+	if _, err := client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name); err != nil {
+		common.Error(s.logChannel, "Failed to notify user already exists | %v", err)
+	}
 	return 0, false
 }
 

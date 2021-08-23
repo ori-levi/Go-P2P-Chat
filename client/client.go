@@ -72,7 +72,9 @@ func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 
 				addr := fmt.Sprintf("%v:%v", remoteAddr[0], remotePort)
 				common.Debug(c.logChannel, "client %v connect %v", clientName, addr)
-				c.makeConnection(addr)
+				if err := c.makeConnection(addr); err != nil {
+					common.Error(c.logChannel, "Failed to make connection | %v", err)
+				}
 			}
 		}
 	}
@@ -106,7 +108,6 @@ func (c *Client) makeConnection(addr string) error {
 	if ok {
 		common.Debug(c.logChannel, "Successfully connect to server")
 		c.Connections[client.Name] = &client
-		//go handleConnection(client)
 	}
 	return nil
 }
@@ -154,7 +155,9 @@ func pmCommand(c *Client, arguments []string) {
 	}
 
 	msg := strings.Join(arguments[1:], " ")
-	conn.SendString(common.PM, msg)
+	if _, err := conn.SendString(common.PM, msg); err != nil {
+		common.Error(c.logChannel, "Failed to send pm to %v | %v", name, err)
+	}
 }
 
 func connectCommand(c *Client, arguments []string) {
@@ -177,7 +180,9 @@ func sendToAll(c *Client, msg string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	for _, conn := range c.Connections {
-		conn.SendString(common.Ok, msg)
+	for name, conn := range c.Connections {
+		if _, err := conn.SendString(common.Ok, msg); err != nil {
+			common.Error(c.logChannel, "Failed to send message to %v | %v", name, err)
+		}
 	}
 }
