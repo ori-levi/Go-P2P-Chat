@@ -142,22 +142,7 @@ func (c *Client) Close() {
 }
 
 func pmCommand(c *Client, arguments []string) {
-	c.locker.RLock()
-	defer c.locker.RUnlock()
-
-	common.Debug(c.logChannel, "PM command %v", arguments)
-
-	name := arguments[0]
-	conn, ok := c.Connections[name]
-	if !ok {
-		common.Info(c.logChannel, "Failed to send PM to %v, are you sure he is connected?", name)
-		return
-	}
-
-	msg := strings.Join(arguments[1:], " ")
-	if _, err := conn.SendString(common.PM, msg); err != nil {
-		common.Error(c.logChannel, "Failed to send pm to %v | %v", name, err)
-	}
+	c.sendPrivate(arguments, common.PM, "PM")
 }
 
 func connectCommand(c *Client, arguments []string) {
@@ -170,10 +155,26 @@ func connectCommand(c *Client, arguments []string) {
 }
 
 func shellCommand(c *Client, arguments []string) {
+	c.sendPrivate(arguments, common.Shell, "Shell")
+}
+
+func (c *Client) sendPrivate(arguments []string, code int, command string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	common.Debug(c.logChannel, "Shell command %v", arguments)
+	common.Debug(c.logChannel, "%v command %v", command, arguments)
+
+	name := arguments[0]
+	conn, ok := c.Connections[name]
+	if !ok {
+		common.Info(c.logChannel, "Failed to send %v to %v, are you sure he is connected?", command, name)
+		return
+	}
+
+	msg := strings.Join(arguments[1:], " ")
+	if _, err := conn.SendString(code, msg); err != nil {
+		common.Error(c.logChannel, "Failed to send %v to %v | %v", command, name, err)
+	}
 }
 
 func sendToAll(c *Client, msg string) {
