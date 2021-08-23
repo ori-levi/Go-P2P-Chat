@@ -3,7 +3,7 @@ package common
 import "fmt"
 
 func output(c chan string, level string, format string, args ...interface{}) {
-	fullFormat := fmt.Sprintf("[%-10v] %v", level, format)
+	fullFormat := fmt.Sprintf("[%-5v] %v", level, format)
 	c <- fmt.Sprintf(fullFormat, args...)
 }
 
