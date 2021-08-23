@@ -11,7 +11,7 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-type ViewDetails struct {
+type Widget struct {
 	Name       string
 	Title      string
 	Editable   bool
@@ -34,7 +34,7 @@ var (
 		"[ERROR": common.LightRed,
 	}
 
-	views = []ViewDetails{
+	widgets = []Widget{
 		{
 			Name:       "input",
 			Title:      "What's On Your Mind?",
@@ -99,17 +99,10 @@ var (
 	}
 )
 
-func setCurrentViewOnTop(g *gocui.Gui, name string) (*gocui.View, error) {
-	if _, err := g.SetCurrentView(name); err != nil {
-		return nil, err
-	}
-	return g.SetViewOnTop(name)
-}
-
-func layout(g *gocui.Gui) error {
+func layout(g *gocui.Gui, name string) error {
 	maxX, maxY := g.Size()
-	for _, details := range views {
-		if v, err := g.SetView(details.Name, details.x0(maxX), details.y0(maxY), details.x1(maxX), details.y1(maxY)); err != nil {
+	for _, w := range widgets {
+		if v, err := g.SetView(w.Name, w.x0(maxX), w.y0(maxY), w.x1(maxX), w.y1(maxY)); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
@@ -119,18 +112,24 @@ func layout(g *gocui.Gui) error {
 				title = fmt.Sprint(name, ", ", title)
 			}
 
-			for _, d := range details.data {
-				if _, err := fmt.Fprintln(v, d); err != nil {
-					return err
-				}
-			}
+			v.Title = title
+			v.Editable = w.Editable
+			v.Wrap = w.Wrap
+			v.Autoscroll = w.Autoscroll
 
-			if _, err = setCurrentViewOnTop(g, "input"); err != nil {
-				return err
+			if len(w.data) > 0 {
+				v.Clear()
+				for _, d := range w.data {
+					if _, err := fmt.Fprintln(v, d); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
-	return nil
+
+	_, err := g.SetCurrentView("input")
+	return err
 }
 
 func quit(*gocui.Gui, *gocui.View) error {
@@ -206,7 +205,7 @@ func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 	}
 }
 
-func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan string) {
+func uiMain(name string, logChannel chan string, chatChannel chan string, inputChannel chan string) {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		log.Panicln(err)
@@ -215,32 +214,29 @@ func uiMain(logChannel chan string, chatChannel chan string, inputChannel chan s
 
 	g.Highlight = true
 	g.Cursor = true
+	g.InputEsc = true
 	g.SelFgColor = gocui.ColorGreen
 
-	g.SetManagerFunc(layout)
+	g.SetManagerFunc(func(g *gocui.Gui) error {
+		return layout(g, name)
+	})
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+		log.Panicln(err)
+	}
+	if err := g.SetKeybinding("", gocui.KeyEsc, gocui.ModNone, quit); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, sendData(inputChannel)); err != nil {
 		log.Panicln(err)
 	}
 
-	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors), nil)
-	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors), shellPrompt)
+	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors))
+	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors))
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
-}
-
-func chatFormatter(s string) string {
-	color := ResetColor
-	if strings.HasPrefix(s, "(PM)") {
-		color = Gold
-	}
-
-	return fmt.Sprint(color, s, ResetColor)
 }
 
 func prefixFormatter(prefixToColor map[string]common.Color) func(string) string {
