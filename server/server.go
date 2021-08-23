@@ -149,6 +149,8 @@ func (s *Server) handleConnection(client *common.Client) {
 	name := client.Name
 	if code == common.PM {
 		name = fmt.Sprintf("(PM) %v", name)
+	} else if code == common.Shell {
+		name = fmt.Sprintf("(SHELL) %v", name)
 	}
 
 	name = common.ColorSprintf(client.Color, "%v:", name)

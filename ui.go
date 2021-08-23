@@ -136,7 +136,7 @@ func quit(*gocui.Gui, *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, formatter func(string) string) {
+func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, formatter func(string) string, customAction func(string) bool) {
 	for {
 		msg := <-channel
 
@@ -147,11 +147,14 @@ func handleViewWithChannel(g *gocui.Gui, channel chan string, viewName string, f
 			}
 
 			msg := strings.Trim(msg, "\r\n")
-			if formatter != nil {
-				msg = formatter(msg)
-			}
-			if _, err := fmt.Fprintln(v, msg); err != nil {
-				return err
+			if customAction == nil || customAction(msg) {
+				if formatter != nil {
+					msg = formatter(msg)
+				}
+
+				if _, err := fmt.Fprintln(v, msg); err != nil {
+					return err
+				}
 			}
 			return nil
 		})
@@ -231,12 +234,20 @@ func uiMain(name string, logChannel chan string, chatChannel chan string, inputC
 		log.Panicln(err)
 	}
 
-	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors))
-	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors))
+	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors), nil)
+	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors), shellPrompt)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
+}
+
+func shellPrompt(s string) bool {
+	if !strings.HasPrefix(s, "(SHELL)") {
+		return true
+	}
+
+	return false
 }
 
 func prefixFormatter(prefixToColor map[string]common.Color) func(string) string {
