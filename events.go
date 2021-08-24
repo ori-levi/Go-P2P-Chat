@@ -2,10 +2,10 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/jroimartin/gocui"
 	"io"
 	ui "levi.ori/p2p-chat/src/ui/widgets"
+	"levi.ori/p2p-chat/src/utils/colors"
 	"strings"
 )
 
@@ -33,14 +33,12 @@ func onInputChange(onValueChange chan string, displayViewName string) ui.Handler
 				return err
 			}
 
-			// todo add colors
-			//color := common.ResetColor
-			//if strings.HasPrefix(data, "/") {
-			//	color = common.LightGreen
-			//}
+			color := colors.ResetColor
+			if strings.HasPrefix(data, "/") {
+				color = colors.LightGreen
+			}
 
-			//if _, err := common.ColorFprintln(vlog, color, "ME:", data); err != nil {
-			if _, err := fmt.Fprintln(vlog, "ME:", data); err != nil {
+			if _, err := colors.ColorFprintln(vlog, color, "ME:", data); err != nil {
 				return err
 			}
 

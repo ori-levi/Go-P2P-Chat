@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	utils "levi.ori/p2p-chat/src"
+	"levi.ori/p2p-chat/src/utils"
 	"net"
 	"strings"
 )
