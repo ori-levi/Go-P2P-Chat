@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"github.com/jroimartin/gocui"
+	app "levi.ori/p2p-chat/src/ui"
+	widgets "levi.ori/p2p-chat/src/ui/widgets"
 	"log"
 )
 
@@ -19,12 +21,37 @@ func main() {
 		log.Fatalln("Name is missing please run with -name <name>")
 	}
 
-	inputChannel := make(chan string)
-	logChannel := make(chan string)
+	mainApp, err := app.NewApp()
+	if err != nil {
+		log.Panicln(err)
+	}
+	defer mainApp.Close()
 
-	fmt.Println(inputChannel)
-	fmt.Println(logChannel)
+	inputView := widgets.NewInputWidget(name)
+	inputView.AddHandler(widgets.KeyHandler{
+		Key:     gocui.KeyEnter,
+		Handler: sendData(inputView.OnValueChange),
+	})
 
+	managers := []gocui.Manager{
+		widgets.NewHelpWidget(),
+		widgets.NewUsersWidget(),
+		widgets.NewChatWidget(),
+		widgets.NewLogWidget(),
+		inputView,
+	}
+
+	if err := mainApp.Run(managers...); err != nil {
+		log.Panicln(err)
+	}
+
+	//
+	//inputChannel := make(chan string)
+	//logChannel := make(chan string)
+	//
+	//fmt.Println(inputChannel)
+	//fmt.Println(logChannel)
+	//
 	//serverApp := server.NewServer(name, port, localInterfaceOnly, logChannel)
 	//go serverApp.RunServer()
 	//
