@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func onInputChange(onValueChange chan string) ui.Handler {
+func onInputChange(onValueChange chan string, displayViewName string) ui.Handler {
 	return func(g *gocui.Gui, v *gocui.View) error {
 		reader := bufio.NewReader(v)
 		data, err := reader.ReadString('\n')
@@ -28,11 +28,12 @@ func onInputChange(onValueChange chan string) ui.Handler {
 
 		onValueChange <- data
 		g.Update(func(gui *gocui.Gui) error {
-			vlog, err := g.View("chat")
+			vlog, err := g.View(displayViewName)
 			if err != nil {
 				return err
 			}
 
+			// todo add colors
 			//color := common.ResetColor
 			//if strings.HasPrefix(data, "/") {
 			//	color = common.LightGreen
@@ -48,10 +49,10 @@ func onInputChange(onValueChange chan string) ui.Handler {
 
 		v.Clear()
 		if err := v.SetCursor(0, 0); err != nil {
-			return nil
+			return err
 		}
 		if err := v.SetOrigin(0, 0); err != nil {
-			return nil
+			return err
 		}
 		return nil
 	}

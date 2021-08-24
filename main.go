@@ -27,16 +27,17 @@ func main() {
 	}
 	defer mainApp.Close()
 
+	chatView := widgets.NewChatWidget()
 	inputView := widgets.NewInputWidget(name)
 	inputView.AddHandler(widgets.KeyHandler{
 		Key:     gocui.KeyEnter,
-		Handler: onInputChange(inputView.OnValueChange),
+		Handler: onInputChange(inputView.OnValueChange, chatView.Name),
 	})
 
 	managers := []gocui.Manager{
 		widgets.NewHelpWidget(),
 		widgets.NewUsersWidget(),
-		widgets.NewChatWidget(),
+		chatView,
 		widgets.NewLogWidget(),
 		inputView,
 	}
