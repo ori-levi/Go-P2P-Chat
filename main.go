@@ -27,6 +27,7 @@ func main() {
 	}
 	defer mainApp.Close()
 
+	logView := widgets.NewLogWidget()
 	chatView := widgets.NewChatWidget()
 	inputView := widgets.NewInputWidget(name)
 	inputView.AddHandler(widgets.KeyHandler{
@@ -38,9 +39,18 @@ func main() {
 		widgets.NewHelpWidget(),
 		widgets.NewUsersWidget(),
 		chatView,
-		widgets.NewLogWidget(),
+		logView,
 		inputView,
 	}
+
+	mainApp.AddLogHandler(onChannelChanged(logView.Name, prefixFormatter(logColors)))
+
+	// todo delete this
+	go func(x chan string) {
+		for {
+			<-x
+		}
+	}(inputView.OnValueChange)
 
 	if err := mainApp.Run(managers...); err != nil {
 		log.Panicln(err)

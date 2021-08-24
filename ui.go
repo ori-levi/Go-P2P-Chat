@@ -1,18 +1,15 @@
 package main
 
-//
-//import (
-//	"bufio"
-//	"github.com/jroimartin/gocui"
-//	"io"
-//	"strings"
-//)
-//
-//
+import (
+	"levi.ori/p2p-chat/src/utils/colors"
+	"strings"
+)
+
 //import (
 //	"bufio"
 //	"fmt"
 //	"io"
+//	"levi.ori/p2p-chat/common"
 //	"log"
 //	"os/exec"
 //	"strings"
@@ -21,61 +18,95 @@ package main
 //)
 //
 //const CUTSET = " \r\n" + string(common.ResetColor)
+
+var (
+	chatColors = map[string]colors.Color{
+		"(PM)":    colors.Gold,
+		"(SHELL)": colors.Cyan,
+	}
+
+	logColors = map[string]colors.Color{
+		"[INFO":  colors.LightPurple,
+		"[DEBUG": colors.LightCyan,
+		"[ERROR": colors.LightRed,
+	}
+)
+
+//func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
+//	return func(g *gocui.Gui, v *gocui.View) error {
+//		reader := bufio.NewReader(v)
+//		data, err := reader.ReadString('\n')
+//		if err == io.EOF {
+//			return nil
+//		}
 //
-//var (
-//	logChan    chan string
-//	outputChan chan string
+//		if err != nil {
+//			return err
+//		}
 //
-//	chatColors = map[string]common.Color{
-//		"(PM)":    common.Gold,
-//		"(SHELL)": common.Cyan,
-//	}
+//		data = strings.Trim(data, "\r\n")
+//		if data == "/exit" {
+//			return gocui.ErrQuit
+//		}
 //
-//	logColors = map[string]common.Color{
-//		"[INFO":  common.LightPurple,
-//		"[DEBUG": common.LightCyan,
-//		"[ERROR": common.LightRed,
-//	}
-//
-//
-//
-//
-//func handleViewWithChannel(
-//	g *gocui.Gui,
-//	channel chan string,
-//	viewName string,
-//	formatter func(string) string,
-//	customAction func(*gocui.Gui, string) bool,
-//) {
-//	for {
-//		msg := <-channel
-//
-//		g.Update(func(g *gocui.Gui) error {
-//			v, err := g.View(viewName)
+//		input <- data
+//		g.Update(func(gui *gocui.Gui) error {
+//			vlog, err := g.View("chat")
 //			if err != nil {
 //				return err
 //			}
 //
-//			msg := strings.Trim(msg, "\r\n")
-//			if customAction == nil || customAction(g, msg) {
-//				if formatter != nil {
-//					msg = formatter(msg)
-//				}
-//
-//				if _, err := fmt.Fprintln(v, msg); err != nil {
-//					return err
-//				}
+//			color := common.ResetColor
+//			if strings.HasPrefix(data, "/") {
+//				color = common.LightGreen
 //			}
+//
+//			if _, err := common.ColorFprintln(vlog, color, "ME:", data); err != nil {
+//				return err
+//			}
+//
 //			return nil
 //		})
+//
+//		v.Clear()
+//		if err := v.SetCursor(0, 0); err != nil {
+//			return nil
+//		}
+//		if err := v.SetOrigin(0, 0); err != nil {
+//			return nil
+//		}
+//		return nil
 //	}
 //}
-//
-//
 //
 //func uiMain(name string, logChannel chan string, chatChannel chan string, inputChannel chan string) {
 //	logChan = logChannel
 //	outputChan = inputChannel
+//
+//	g, err := gocui.NewGui(gocui.OutputNormal)
+//	if err != nil {
+//		log.Panicln(err)
+//	}
+//	defer g.Close()
+//
+//	g.Highlight = true
+//	g.Cursor = true
+//	g.InputEsc = true
+//	g.SelFgColor = gocui.ColorGreen
+//
+//	g.SetManagerFunc(func(g *gocui.Gui) error {
+//		return layout(g, name)
+//	})
+//
+//	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+//		log.Panicln(err)
+//	}
+//	if err := g.SetKeybinding("", gocui.KeyEsc, gocui.ModNone, quit); err != nil {
+//		log.Panicln(err)
+//	}
+//	if err := g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, sendData(inputChannel)); err != nil {
+//		log.Panicln(err)
+//	}
 //
 //	go handleViewWithChannel(g, logChannel, "log", prefixFormatter(logColors), nil)
 //	go handleViewWithChannel(g, chatChannel, "chat", prefixFormatter(chatColors), shellPrompt)
@@ -150,21 +181,21 @@ package main
 //	//return false
 //}
 //
-//func prefixFormatter(prefixToColor map[string]common.Color) func(string) string {
-//	return func(s string) string {
-//
-//		finalColor := common.ResetColor
-//		for prefix, color := range prefixToColor {
-//			if strings.HasPrefix(s, prefix) {
-//				finalColor = color
-//				break
-//			}
-//		}
-//
-//		return common.ColorSprintf(finalColor, s)
-//	}
-//}
-//
+
+func prefixFormatter(prefixToColor map[string]colors.Color) func(string) string {
+	return func(s string) string {
+		finalColor := colors.ResetColor
+		for prefix, color := range prefixToColor {
+			if strings.HasPrefix(s, prefix) {
+				finalColor = color
+				break
+			}
+		}
+
+		return colors.ColorSprintf(finalColor, s)
+	}
+}
+
 //func center(s string, n int, fill string) string {
 //	filler := strings.Repeat(fill, n/2)
 //

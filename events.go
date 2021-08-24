@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/jroimartin/gocui"
 	"io"
-	ui "levi.ori/p2p-chat/src/ui/widgets"
+	app "levi.ori/p2p-chat/src/ui"
+	"levi.ori/p2p-chat/src/ui/widgets"
 	"levi.ori/p2p-chat/src/utils/colors"
 	"strings"
 )
@@ -53,5 +55,32 @@ func onInputChange(onValueChange chan string, displayViewName string) ui.Handler
 			return err
 		}
 		return nil
+	}
+}
+
+func onChannelChanged(
+	viewName string,
+	formatter func(string) string,
+	//customAction func(*gocui.Gui, string) bool,
+) app.LogHandler {
+	return func(g *gocui.Gui, msg string) {
+		g.Update(func(g *gocui.Gui) error {
+			v, err := g.View(viewName)
+			if err != nil {
+				return err
+			}
+
+			msg := strings.Trim(msg, "\r\n")
+			//if customAction == nil || customAction(g, msg) {
+			if formatter != nil {
+				msg = formatter(msg)
+			}
+
+			if _, err := fmt.Fprintln(v, msg); err != nil {
+				return err
+			}
+			//}
+			return nil
+		})
 	}
 }
