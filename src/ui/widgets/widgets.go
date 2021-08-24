@@ -12,6 +12,7 @@ func newWidget(
 	wrap bool,
 	x0, y0 PointCalculator,
 	x1, y1 PointCalculator,
+	isCurrentView bool,
 	data []string,
 ) *Widget {
 	return &Widget{
@@ -25,6 +26,7 @@ func newWidget(
 		x1:            x1,
 		y1:            y1,
 		data:          data,
+		IsCurrentView: isCurrentView,
 		OnValueChange: make(chan string),
 	}
 }
@@ -40,6 +42,7 @@ func NewInputWidget(name string) *Widget {
 		func(maxY int) int { return 3*maxY/4 - 3 },
 		func(maxX int) int { return maxX - 1 },
 		func(maxY int) int { return 3*maxY/4 - 1 },
+		true,
 		nil,
 	)
 }
@@ -55,6 +58,7 @@ func NewLogWidget() *Widget {
 		func(maxY int) int { return 3 * maxY / 4 },
 		func(maxX int) int { return maxX - 1 },
 		func(maxY int) int { return maxY - 1 },
+		false,
 		nil,
 	)
 }
@@ -70,6 +74,7 @@ func NewChatWidget() *Widget {
 		func(maxY int) int { return 0 },
 		func(maxX int) int { return maxX / 3 * 2 },
 		func(maxY int) int { return 3*maxY/4 - 4 },
+		false,
 		nil,
 	)
 }
@@ -85,6 +90,7 @@ func NewUsersWidget() *Widget {
 		func(maxY int) int { return 0 },
 		func(maxX int) int { return maxX - 1 },
 		func(maxY int) int { return maxY / 2 },
+		false,
 		nil,
 	)
 }
@@ -100,6 +106,7 @@ func NewHelpWidget() *Widget {
 		func(maxY int) int { return maxY/2 + 1 },
 		func(maxX int) int { return maxX - 1 },
 		func(maxY int) int { return 3*maxY/4 - 4 },
+		false,
 		[]string{
 			fmt.Sprintf("%-9v <ip> <port>", "/connect"),
 			fmt.Sprintf("%-9v <name> <message...>", "/pm"),

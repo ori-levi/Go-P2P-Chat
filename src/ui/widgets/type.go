@@ -5,23 +5,26 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+type Handler func(*gocui.Gui, *gocui.View) error
+
 type KeyHandler struct {
-	Key     gocui.Key
-	Handler func(*gocui.Gui, *gocui.View) error
+	gocui.Key
+	Handler
 }
 type Handlers []KeyHandler
 type PointCalculator func(int) int
 
 type Widget struct {
-	Name       string
-	Title      string
-	Editable   bool
-	Autoscroll bool
-	Wrap       bool
-	x0, y0     PointCalculator
-	x1, y1     PointCalculator
-	data       []string
-	handlers   Handlers
+	Name          string
+	Title         string
+	Editable      bool
+	Autoscroll    bool
+	Wrap          bool
+	x0, y0        PointCalculator
+	x1, y1        PointCalculator
+	data          []string
+	handlers      Handlers
+	IsCurrentView bool
 
 	// events
 	OnValueChange chan string
@@ -53,6 +56,12 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 			if err := g.SetKeybinding(w.Name, keyHandler.Key, gocui.ModNone, keyHandler.Handler); err != nil {
 				return err
 			}
+		}
+	}
+
+	if w.IsCurrentView {
+		if _, err := g.SetCurrentView("input"); err != nil {
+			return err
 		}
 	}
 	return nil
