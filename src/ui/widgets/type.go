@@ -5,17 +5,26 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+type KeyHandler struct {
+	Key     gocui.Key
+	Handler func(*gocui.Gui, *gocui.View) error
+}
+type Handlers []KeyHandler
+type PointCalculator func(int) int
+
 type Widget struct {
 	Name       string
 	Title      string
 	Editable   bool
 	Autoscroll bool
 	Wrap       bool
-	x0, y0     func(int) int
-	x1, y1     func(int) int
+	x0, y0     PointCalculator
+	x1, y1     PointCalculator
 	data       []string
-	keys       []gocui.Key
-	handler    func(g *gocui.Gui, v *gocui.View) error
+	handlers   Handlers
+
+	// events
+	OnValueChange chan string
 }
 
 func (w *Widget) Layout(g *gocui.Gui) error {
@@ -40,13 +49,15 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 			}
 		}
 
-		if w.handler != nil {
-			for _, key := range w.keys {
-				if err := g.SetKeybinding(w.Name, key, gocui.ModNone, w.handler); err != nil {
-					return err
-				}
+		for _, keyHandler := range w.handlers {
+			if err := g.SetKeybinding(w.Name, keyHandler.Key, gocui.ModNone, keyHandler.Handler); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (w *Widget) AddHandler(handler KeyHandler) {
+	w.handlers = append(w.handlers, handler)
 }
