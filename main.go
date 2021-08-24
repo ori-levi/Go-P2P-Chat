@@ -2,8 +2,7 @@ package main
 
 import (
 	"flag"
-	"levi.ori/p2p-chat/client"
-	"levi.ori/p2p-chat/server"
+	"fmt"
 	"log"
 )
 
@@ -12,10 +11,7 @@ func main() {
 	flag.StringVar(&name, "name", "", "Your client name")
 
 	var port int
-	flag.IntVar(&port, "port", server.DefaultPort, "local server port for listening")
-
-	var localInterfaceOnly bool
-	flag.BoolVar(&localInterfaceOnly, "local-iface", false, "listening only for local interface ("+server.InternalInterface+")")
+	flag.IntVar(&port, "port", 9090, "local server port for listening")
 
 	flag.Parse()
 
@@ -26,11 +22,14 @@ func main() {
 	inputChannel := make(chan string)
 	logChannel := make(chan string)
 
-	serverApp := server.NewServer(name, port, localInterfaceOnly, logChannel)
-	go serverApp.RunServer()
+	fmt.Println(inputChannel)
+	fmt.Println(logChannel)
 
-	clientApp := client.NewClient(name, port, logChannel)
-	go clientApp.Run(serverApp.InChannel, inputChannel)
-
-	uiMain(name, logChannel, serverApp.OutChannel, inputChannel)
+	//serverApp := server.NewServer(name, port, localInterfaceOnly, logChannel)
+	//go serverApp.RunServer()
+	//
+	//clientApp := client.NewClient(name, port, logChannel)
+	//go clientApp.Run(serverApp.InChannel, inputChannel)
+	//
+	//old_code.uiMain(name, logChannel, serverApp.OutChannel, inputChannel)
 }
