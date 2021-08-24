@@ -30,7 +30,7 @@ func main() {
 	inputView := widgets.NewInputWidget(name)
 	inputView.AddHandler(widgets.KeyHandler{
 		Key:     gocui.KeyEnter,
-		Handler: sendData(inputView.OnValueChange),
+		Handler: onInputChange(inputView.OnValueChange),
 	})
 
 	managers := []gocui.Manager{
