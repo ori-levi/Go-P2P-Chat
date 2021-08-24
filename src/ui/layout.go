@@ -5,7 +5,8 @@ import (
 )
 
 type App struct {
-	screen *gocui.Gui
+	screen     *gocui.Gui
+	logChannel chan string
 }
 
 func quit(*gocui.Gui, *gocui.View) error {
@@ -24,7 +25,8 @@ func NewApp() (*App, error) {
 	g.SelFgColor = gocui.ColorGreen
 
 	return &App{
-		screen: g,
+		screen:     g,
+		logChannel: make(chan string),
 	}, nil
 }
 
