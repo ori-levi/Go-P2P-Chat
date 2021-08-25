@@ -60,3 +60,10 @@ func (a *App) AddLogConsumer(f LogConsumer) {
 		f(a.screen, value)
 	})
 }
+
+// todo fix this!
+//func (a *App) AddLogProvider(f func(string, ...interface{})) {
+//	a.logHandlers.AddProvider(func() interface{} {
+//		return f()
+//	})
+//}
