@@ -1,17 +1,10 @@
 package ui
 
-import (
-	"github.com/jroimartin/gocui"
-	"sync"
-)
-
-type LogHandler func(*gocui.Gui, string)
+import "github.com/jroimartin/gocui"
 
 type App struct {
 	screen      *gocui.Gui
-	logChannel  chan string
-	lock        sync.RWMutex
-	logHandlers []LogHandler
+	logHandlers *Handlers
 }
 
 func quit(*gocui.Gui, *gocui.View) error {
@@ -30,8 +23,8 @@ func NewApp() (*App, error) {
 	g.SelFgColor = gocui.ColorGreen
 
 	return &App{
-		screen:     g,
-		logChannel: make(chan string),
+		screen:      g,
+		logHandlers: NewHandlers(),
 	}, nil
 }
 
@@ -43,7 +36,8 @@ func (a *App) Run(managers ...gocui.Manager) error {
 	g := a.screen
 
 	g.SetManager(managers...)
-	go a.handleLogChannel()
+
+	a.logHandlers.Start()
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
@@ -59,23 +53,8 @@ func (a *App) Run(managers ...gocui.Manager) error {
 	return nil
 }
 
-func (a *App) AddLogHandler(f LogHandler) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	a.logHandlers = append(a.logHandlers, f)
-}
-
-func (a *App) handleLogChannel() {
-	for {
-		a.runAllHandlers(<-a.logChannel)
-	}
-}
-
-func (a *App) runAllHandlers(s string) {
-	a.lock.RLock()
-	defer a.lock.RUnlock()
-	for _, handler := range a.logHandlers {
-		go handler(a.screen, s)
-	}
+func (a *App) AddLogHandler(f func(*gocui.Gui, interface{})) {
+	a.logHandlers.AddHandler(func(value interface{}) {
+		f(a.screen, value)
+	})
 }
