@@ -91,7 +91,7 @@ package network
 //	if command == common.Register {
 //		if serverPort, ok := s.registerClient(data, &client); ok && serverPort != s.port {
 //			common.Info(s.logChannel, "New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
-//			s.InChannel <- common.InnerCommand{
+//			s.InChannel <- common.innerCommand{
 //				Command: common.ClientConnect,
 //				Data:    []interface{}{client.Name, client.RawConnection.RemoteAddr().String(), serverPort},
 //			}
@@ -167,7 +167,7 @@ package network
 //	client.Close()
 //	delete(s.Clients, client.Name)
 //
-//	s.InChannel <- common.InnerCommand{
+//	s.InChannel <- common.innerCommand{
 //		Command: common.ClientDisconnect,
 //		Data:    client.Name,
 //	}
