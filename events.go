@@ -6,12 +6,11 @@ import (
 	"github.com/jroimartin/gocui"
 	"io"
 	app "levi.ori/p2p-chat/src/ui"
-	"levi.ori/p2p-chat/src/ui/widgets"
 	"levi.ori/p2p-chat/src/utils/colors"
 	"strings"
 )
 
-func onInputChange(onValueChange chan string, displayViewName string) ui.Handler {
+func onInputChange(onValueChange chan string, displayViewName string) app.Handler {
 	return func(g *gocui.Gui, v *gocui.View) error {
 		reader := bufio.NewReader(v)
 		data, err := reader.ReadString('\n')

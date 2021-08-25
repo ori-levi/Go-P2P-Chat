@@ -4,7 +4,6 @@ import (
 	"flag"
 	"github.com/jroimartin/gocui"
 	app "levi.ori/p2p-chat/src/ui"
-	widgets "levi.ori/p2p-chat/src/ui/widgets"
 	"log"
 )
 
@@ -27,17 +26,17 @@ func main() {
 	}
 	defer mainApp.Close()
 
-	logView := widgets.NewLogWidget()
-	chatView := widgets.NewChatWidget()
-	inputView := widgets.NewInputWidget(name)
-	inputView.AddHandler(widgets.KeyHandler{
+	logView := NewLogWidget()
+	chatView := NewChatWidget()
+	inputView := NewInputWidget(name)
+	inputView.AddHandler(app.KeyHandler{
 		Key:     gocui.KeyEnter,
 		Handler: onInputChange(inputView.OnValueChange, chatView.Name),
 	})
 
 	managers := []gocui.Manager{
-		widgets.NewHelpWidget(),
-		widgets.NewUsersWidget(),
+		NewHelpWidget(),
+		NewUsersWidget(),
 		chatView,
 		logView,
 		inputView,

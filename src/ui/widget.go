@@ -16,15 +16,15 @@ type PointCalculator func(int) int
 
 type Widget struct {
 	Name          string
-	Title         string
-	Editable      bool
-	Autoscroll    bool
-	Wrap          bool
+	title         string
+	editable      bool
+	autoscroll    bool
+	wrap          bool
 	x0, y0        PointCalculator
 	x1, y1        PointCalculator
 	data          []string
 	handlers      Handlers
-	IsCurrentView bool
+	isCurrentView bool
 
 	// events
 	OnValueChange chan string
@@ -38,10 +38,10 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 			return err
 		}
 
-		v.Title = w.Title
-		v.Editable = w.Editable
-		v.Autoscroll = w.Autoscroll
-		v.Wrap = w.Wrap
+		v.Title = w.title
+		v.Editable = w.editable
+		v.Autoscroll = w.autoscroll
+		v.Wrap = w.wrap
 
 		if len(w.data) > 0 {
 			v.Clear()
@@ -59,7 +59,7 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 		}
 	}
 
-	if w.IsCurrentView {
+	if w.isCurrentView {
 		if _, err := g.SetCurrentView("input"); err != nil {
 			return err
 		}
@@ -69,4 +69,31 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 
 func (w *Widget) AddHandler(handler KeyHandler) {
 	w.handlers = append(w.handlers, handler)
+}
+
+func NewWidget(
+	name string,
+	title string,
+	autoscroll bool,
+	editable bool,
+	wrap bool,
+	x0, y0 PointCalculator,
+	x1, y1 PointCalculator,
+	isCurrentView bool,
+	data []string,
+) *Widget {
+	return &Widget{
+		Name:          name,
+		title:         title,
+		autoscroll:    autoscroll,
+		editable:      editable,
+		wrap:          wrap,
+		x0:            x0,
+		y0:            y0,
+		x1:            x1,
+		y1:            y1,
+		data:          data,
+		isCurrentView: isCurrentView,
+		OnValueChange: make(chan string),
+	}
 }

@@ -1,22 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"levi.ori/p2p-chat/src/ui"
 	"levi.ori/p2p-chat/src/utils/colors"
 	"strings"
 )
 
-//import (
-//	"bufio"
-//	"fmt"
-//	"io"
-//	"levi.ori/p2p-chat/common"
-//	"log"
-//	"os/exec"
-//	"strings"
-//
-//	"github.com/jroimartin/gocui"
-//)
-//
 //const CUTSET = " \r\n" + string(common.ResetColor)
 
 var (
@@ -31,6 +21,91 @@ var (
 		"[ERROR": colors.LightRed,
 	}
 )
+
+func NewInputWidget(name string) *ui.Widget {
+	return ui.NewWidget(
+		"input",
+		fmt.Sprintf("%v, What's On Your Mind?", name),
+		true,
+		true,
+		true,
+		func(maxX int) int { return 0 },
+		func(maxY int) int { return 3*maxY/4 - 3 },
+		func(maxX int) int { return maxX - 1 },
+		func(maxY int) int { return 3*maxY/4 - 1 },
+		true,
+		nil,
+	)
+}
+
+func NewLogWidget() *ui.Widget {
+	return ui.NewWidget(
+		"log",
+		"Log",
+		true,
+		false,
+		true,
+		func(maxX int) int { return 0 },
+		func(maxY int) int { return 3 * maxY / 4 },
+		func(maxX int) int { return maxX - 1 },
+		func(maxY int) int { return maxY - 1 },
+		false,
+		nil,
+	)
+}
+
+func NewChatWidget() *ui.Widget {
+	return ui.NewWidget(
+		"chat",
+		"Conversation",
+		true,
+		false,
+		true,
+		func(maxX int) int { return 0 },
+		func(maxY int) int { return 0 },
+		func(maxX int) int { return maxX / 3 * 2 },
+		func(maxY int) int { return 3*maxY/4 - 4 },
+		false,
+		nil,
+	)
+}
+
+func NewUsersWidget() *ui.Widget {
+	return ui.NewWidget(
+		"users",
+		"Users",
+		true,
+		false,
+		true,
+		func(maxX int) int { return maxX/3*2 + 1 },
+		func(maxY int) int { return 0 },
+		func(maxX int) int { return maxX - 1 },
+		func(maxY int) int { return maxY / 2 },
+		false,
+		nil,
+	)
+}
+
+func NewHelpWidget() *ui.Widget {
+	return ui.NewWidget(
+		"help",
+		"Help",
+		true,
+		false,
+		true,
+		func(maxX int) int { return maxX/3*2 + 1 },
+		func(maxY int) int { return maxY/2 + 1 },
+		func(maxX int) int { return maxX - 1 },
+		func(maxY int) int { return 3*maxY/4 - 4 },
+		false,
+		[]string{
+			fmt.Sprintf("%-9v <ip> <port>", "/connect"),
+			fmt.Sprintf("%-9v <name> <message...>", "/pm"),
+			fmt.Sprintf("%-9v <name> <command...>", "/shell"),
+			"/exit",
+		},
+	)
+}
 
 //func sendData(input chan string) func(*gocui.Gui, *gocui.View) error {
 //	return func(g *gocui.Gui, v *gocui.View) error {
@@ -168,10 +243,10 @@ var (
 //	//		log.Panicln(err)
 //	//	}
 //	//
-//	//	v.Title = title
-//	//	v.Editable = false
-//	//	v.Wrap = false
-//	//	v.Autoscroll = false
+//	//	v.title = title
+//	//	v.editable = false
+//	//	v.wrap = false
+//	//	v.autoscroll = false
 //	//
 //	//	if _, err := fmt.Fprint(v, center(command, x1-x0-2, " ")); err != nil {
 //	//		log.Panicln(err)
