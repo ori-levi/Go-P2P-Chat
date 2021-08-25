@@ -2,6 +2,8 @@ package ui
 
 import "github.com/jroimartin/gocui"
 
+type LogConsumer func(*gocui.Gui, interface{})
+
 type App struct {
 	screen      *gocui.Gui
 	logHandlers *Handlers
@@ -53,7 +55,7 @@ func (a *App) Run(managers ...gocui.Manager) error {
 	return nil
 }
 
-func (a *App) AddLogConsumer(f func(*gocui.Gui, interface{})) {
+func (a *App) AddLogConsumer(f LogConsumer) {
 	a.logHandlers.AddConsumer(func(value interface{}) {
 		f(a.screen, value)
 	})

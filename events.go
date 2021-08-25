@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/jroimartin/gocui"
 	"io"
@@ -61,15 +62,20 @@ func onChannelChanged(
 	viewName string,
 	formatter func(string) string,
 	//customAction func(*gocui.Gui, string) bool,
-) app.LogHandler {
-	return func(g *gocui.Gui, msg string) {
+) app.LogConsumer {
+	return func(g *gocui.Gui, rawMsg interface{}) {
 		g.Update(func(g *gocui.Gui) error {
 			v, err := g.View(viewName)
 			if err != nil {
 				return err
 			}
 
-			msg := strings.Trim(msg, "\r\n")
+			msg, ok := rawMsg.(string)
+			if !ok {
+				return errors.New(fmt.Sprintf("Log Consumer got msg with type %T expected string", rawMsg))
+			}
+
+			msg = strings.Trim(msg, "\r\n")
 			//if customAction == nil || customAction(g, msg) {
 			if formatter != nil {
 				msg = formatter(msg)
