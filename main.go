@@ -31,7 +31,7 @@ func main() {
 	inputView := NewInputWidget(name)
 	inputView.AddHandler(app.KeyHandlerPair{
 		Key:     gocui.KeyEnter,
-		Handler: onInputChange(inputView.OnValueChange, chatView.Name),
+		Handler: onInputChange(inputView.OnValueChangeChanel, chatView.Name),
 	})
 
 	managers := []gocui.Manager{
@@ -49,7 +49,7 @@ func main() {
 		for {
 			<-x
 		}
-	}(inputView.OnValueChange)
+	}(inputView.OnValueChangeChanel)
 
 	if err := mainApp.Run(managers...); err != nil {
 		log.Panicln(err)
