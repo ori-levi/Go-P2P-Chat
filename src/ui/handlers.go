@@ -1,13 +1,19 @@
 package ui
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
-type Handler func(interface{})
+type ConsumerHandler func(interface{})
+type ProviderHandler func() interface{}
 
 type Handlers struct {
-	lock     sync.RWMutex
-	channel  chan interface{}
-	handlers []Handler
+	channel       chan interface{}
+	consumersLock sync.RWMutex
+	consumers     []ConsumerHandler
+	providersLock sync.RWMutex
+	providers     []ProviderHandler
 }
 
 func NewHandlers() *Handlers {
@@ -17,26 +23,60 @@ func NewHandlers() *Handlers {
 }
 
 func (h *Handlers) Start() {
-	go h.handleChannel()
+	go h.provideChannel()
+	go h.consumeChannel()
 }
 
-func (h *Handlers) AddHandler(f Handler) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
+func (h *Handlers) AddConsumer(f ConsumerHandler) {
+	h.consumersLock.Lock()
+	defer h.consumersLock.Unlock()
 
-	h.handlers = append(h.handlers, f)
+	h.consumers = append(h.consumers, f)
 }
 
-func (h *Handlers) handleChannel() {
+func (h *Handlers) AddProvider(f ProviderHandler) {
+	h.providersLock.Lock()
+	defer h.providersLock.Unlock()
+
+	h.providers = append(h.providers, f)
+}
+
+func (h *Handlers) consumeChannel() {
 	for {
-		h.startHandlers(<-h.channel)
+		h.startConsumers(<-h.channel)
 	}
 }
 
-func (h *Handlers) startHandlers(msg interface{}) {
-	h.lock.RLock()
-	defer h.lock.RUnlock()
-	for _, handler := range h.handlers {
-		handler(msg)
+func (h *Handlers) startConsumers(msg interface{}) {
+	h.consumersLock.RLock()
+	defer h.consumersLock.RUnlock()
+	for _, consumer := range h.consumers {
+		consumer(msg)
 	}
+}
+
+func (h *Handlers) provideChannel() {
+	for {
+		messages := h.getMessages()
+		if len(messages) > 0 {
+			for _, msg := range messages {
+				h.channel <- msg
+			}
+
+		} else {
+			time.Sleep(time.Second / 2)
+		}
+	}
+}
+
+func (h *Handlers) getMessages() []interface{} {
+	h.consumersLock.RLock()
+	defer h.consumersLock.RUnlock()
+
+	messages := make([]interface{}, len(h.consumers))
+	for _, provider := range h.providers {
+		messages = append(messages, provider())
+	}
+
+	return messages
 }
