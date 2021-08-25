@@ -29,7 +29,7 @@ func main() {
 	logView := NewLogWidget()
 	chatView := NewChatWidget()
 	inputView := NewInputWidget(name)
-	inputView.AddHandler(app.KeyHandler{
+	inputView.AddHandler(app.KeyHandlerPair{
 		Key:     gocui.KeyEnter,
 		Handler: onInputChange(inputView.OnValueChange, chatView.Name),
 	})
@@ -42,7 +42,7 @@ func main() {
 		inputView,
 	}
 
-	mainApp.AddLogHandler(onChannelChanged(logView.Name, prefixFormatter(logColors)))
+	mainApp.AddLogConsumer(onChannelChanged(logView.Name, prefixFormatter(logColors)))
 
 	// todo delete this
 	go func(x chan string) {

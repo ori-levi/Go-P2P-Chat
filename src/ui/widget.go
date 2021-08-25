@@ -5,13 +5,13 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-type Handler func(*gocui.Gui, *gocui.View) error
+type KeyHandler func(*gocui.Gui, *gocui.View) error
 
-type KeyHandler struct {
+type KeyHandlerPair struct {
 	gocui.Key
-	Handler
+	Handler KeyHandler
 }
-type Handlers []KeyHandler
+type KeyHandlers []KeyHandlerPair
 type PointCalculator func(int) int
 
 type Widget struct {
@@ -23,11 +23,12 @@ type Widget struct {
 	x0, y0        PointCalculator
 	x1, y1        PointCalculator
 	data          []string
-	handlers      Handlers
+	handlers      KeyHandlers
 	isCurrentView bool
 
 	// events
-	OnValueChange chan string
+	OnValueChangeChanel chan string
+	OnValueChange       func(string)
 }
 
 func (w *Widget) Layout(g *gocui.Gui) error {
@@ -67,7 +68,7 @@ func (w *Widget) Layout(g *gocui.Gui) error {
 	return nil
 }
 
-func (w *Widget) AddHandler(handler KeyHandler) {
+func (w *Widget) AddHandler(handler KeyHandlerPair) {
 	w.handlers = append(w.handlers, handler)
 }
 
@@ -82,18 +83,30 @@ func NewWidget(
 	isCurrentView bool,
 	data []string,
 ) *Widget {
-	return &Widget{
-		Name:          name,
-		title:         title,
-		autoscroll:    autoscroll,
-		editable:      editable,
-		wrap:          wrap,
-		x0:            x0,
-		y0:            y0,
-		x1:            x1,
-		y1:            y1,
-		data:          data,
-		isCurrentView: isCurrentView,
-		OnValueChange: make(chan string),
+	w := Widget{
+		Name:                name,
+		title:               title,
+		autoscroll:          autoscroll,
+		editable:            editable,
+		wrap:                wrap,
+		x0:                  x0,
+		y0:                  y0,
+		x1:                  x1,
+		y1:                  y1,
+		data:                data,
+		isCurrentView:       isCurrentView,
+		OnValueChangeChanel: make(chan string),
+	}
+
+	go w.handleValueChange()
+	return &w
+}
+
+func (w *Widget) handleValueChange() {
+	for {
+		msg := <-w.OnValueChangeChanel
+		if w.OnValueChange != nil {
+			w.OnValueChange(msg)
+		}
 	}
 }

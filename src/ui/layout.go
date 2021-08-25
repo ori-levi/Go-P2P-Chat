@@ -53,8 +53,8 @@ func (a *App) Run(managers ...gocui.Manager) error {
 	return nil
 }
 
-func (a *App) AddLogHandler(f func(*gocui.Gui, interface{})) {
-	a.logHandlers.AddHandler(func(value interface{}) {
+func (a *App) AddLogConsumer(f func(*gocui.Gui, interface{})) {
+	a.logHandlers.AddConsumer(func(value interface{}) {
 		f(a.screen, value)
 	})
 }

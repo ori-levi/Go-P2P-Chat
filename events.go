@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func onInputChange(onValueChange chan string, displayViewName string) app.Handler {
+func onInputChange(onValueChange chan string, displayViewName string) app.KeyHandler {
 	return func(g *gocui.Gui, v *gocui.View) error {
 		reader := bufio.NewReader(v)
 		data, err := reader.ReadString('\n')
