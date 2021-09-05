@@ -1,25 +1,26 @@
-package common
+package network
 
 import (
 	"bufio"
 	"fmt"
 	"io"
+	"levi.ori/p2p-chat/utils"
 	"net"
 	"strings"
 )
 
-type Client struct {
+type Conn struct {
 	RawConnection net.Conn
 	Reader        *bufio.Reader
 	Closed        bool
 	Channel       chan interface{}
 	Name          string
 	logChannel    chan string
-	Color
+	utils.Color
 }
 
-func NewClient(name string, connection net.Conn, logChannel chan string, color Color) Client {
-	c := Client{
+func NewConn(name string, connection net.Conn, logChannel chan string, color utils.Color) Conn {
+	c := Conn{
 		Closed:     false,
 		Channel:    make(chan interface{}),
 		Name:       name,
@@ -30,7 +31,7 @@ func NewClient(name string, connection net.Conn, logChannel chan string, color C
 	return c
 }
 
-func (c *Client) SetRawConnection(conn net.Conn) {
+func (c *Conn) SetRawConnection(conn net.Conn) {
 	if conn == nil {
 		return
 	}
@@ -39,15 +40,15 @@ func (c *Client) SetRawConnection(conn net.Conn) {
 	c.Reader = bufio.NewReader(conn)
 }
 
-func (c *Client) Close() {
+func (c *Conn) Close() {
 	close(c.Channel)
 	err := c.RawConnection.Close()
 	if err != nil {
-		Error(c.logChannel, "Failed to close connection; %v", err)
+		utils.Error(c.logChannel, "Failed to close connection; %v", err)
 	}
 }
 
-func (c *Client) ReadAllAsString() (int, string, error) {
+func (c *Conn) ReadAllAsString() (int, string, error) {
 	data, err := c.Reader.ReadString('\n')
 	if err != nil {
 		c.Closed = err == io.EOF
@@ -57,16 +58,16 @@ func (c *Client) ReadAllAsString() (int, string, error) {
 	data = strings.Trim(data, "\r\n")
 	parts := strings.SplitN(data, " ", 2)
 
-	code, err := AsInt(parts[0])
+	code, err := utils.AsInt(parts[0])
 	if err != nil {
-		Error(c.logChannel, "Failed to parse code as int| %v", err)
+		utils.Error(c.logChannel, "Failed to parse code as int| %v", err)
 		return 0, "", err
 	}
 
 	return code, strings.Join(parts[1:], " "), nil
 }
 
-func (c *Client) SendString(code int, format string, args ...interface{}) (int, error) {
+func (c *Conn) SendString(code int, format string, args ...interface{}) (int, error) {
 	fullFormat := fmt.Sprintf("%v %v", code, format)
 	data := fmt.Sprintf(fullFormat, args...)
 	if !strings.HasSuffix(data, "\n") {

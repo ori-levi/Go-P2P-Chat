@@ -1,7 +1,8 @@
-package server
+package network
 
 import (
 	"fmt"
+	"levi.ori/p2p-chat/utils"
 	"log"
 	"net"
 	"strings"
@@ -17,7 +18,7 @@ const (
 type Server struct {
 	name       string
 	Listener   net.Listener
-	Clients    map[string]*common.Client
+	Clients    map[string]*Conn
 	InChannel  chan interface{}
 	OutChannel chan string
 	locker     sync.RWMutex
@@ -40,7 +41,7 @@ func NewServer(name string, port int, localInterfaceOnly bool, logChannel chan s
 	return Server{
 		name:       name,
 		Listener:   ln,
-		Clients:    make(map[string]*common.Client),
+		Clients:    make(map[string]*Conn),
 		InChannel:  make(chan interface{}),
 		OutChannel: make(chan string),
 		logChannel: logChannel,
@@ -49,7 +50,7 @@ func NewServer(name string, port int, localInterfaceOnly bool, logChannel chan s
 }
 
 func (s *Server) Close() {
-	common.Debug(s.logChannel, "Server:Close Called")
+	utils.Debug(s.logChannel, "Server:Close Called")
 
 	// 1. Close all clients
 	for _, c := range s.Clients {
@@ -63,18 +64,18 @@ func (s *Server) Close() {
 	// 3. Close the listener object
 	err := s.Listener.Close()
 	if err != nil {
-		common.Error(s.logChannel, "Error occurred: %v", err)
+		utils.Error(s.logChannel, "Error occurred: %v", err)
 	}
 }
 
 func (s *Server) RunServer() {
 	defer s.Close()
 
-	common.Info(s.logChannel, "Start listening to connection %v", s.Listener.Addr().String())
+	utils.Info(s.logChannel, "Start listening to connection %v", s.Listener.Addr().String())
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
-			common.Error(s.logChannel, "Failed to accept connection, error: %v", err)
+			utils.Error(s.logChannel, "Failed to accept connection, error: %v", err)
 		}
 
 		go s.makeClientConnection(conn)
@@ -82,14 +83,14 @@ func (s *Server) RunServer() {
 }
 
 func (s *Server) makeClientConnection(conn net.Conn) {
-	client := common.NewClient("", conn, s.logChannel, common.RandomColor())
+	client := NewConn("", conn, s.logChannel, utils.RandomColor())
 
 	command, data := ReadCommand(&client)
-	if command == common.Register {
+	if command == Register {
 		if serverPort, ok := s.registerClient(data, &client); ok && serverPort != s.port {
-			common.Info(s.logChannel, "New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
-			s.InChannel <- common.InnerCommand{
-				Command: common.ClientConnect,
+			utils.Info(s.logChannel, "New connection from %v (%v)", client.Name, conn.RemoteAddr().String())
+			s.InChannel <- InnerCommand{
+				Command: ClientConnect,
 				Data:    []interface{}{client.Name, client.RawConnection.RemoteAddr().String(), serverPort},
 			}
 			go s.handleConnection(&client)
@@ -99,41 +100,41 @@ func (s *Server) makeClientConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) registerClient(data string, client *common.Client) (int, bool) {
+func (s *Server) registerClient(data string, client *Conn) (int, bool) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
 	parts := strings.Split(data, " ")
 	lastIndex := len(parts) - 1
 	name := strings.Join(parts[:lastIndex], " ")
-	remotePort, err := common.AsInt(parts[lastIndex])
+	remotePort, err := utils.AsInt(parts[lastIndex])
 	if err != nil {
-		common.Error(s.logChannel, "Failed to parse remote port| %v", err)
+		utils.Error(s.logChannel, "Failed to parse remote port| %v", err)
 		return 0, false
 	}
 
 	if _, ok := s.Clients[name]; !ok && name != s.name {
 		client.Name = name
 		s.Clients[client.Name] = client
-		if _, err := client.SendString(common.MyName, "%v\n", s.name); err != nil {
-			common.Error(s.logChannel, "Failed to notify new user my name | %v", err)
+		if _, err := client.SendString(MyName, "%v\n", s.name); err != nil {
+			utils.Error(s.logChannel, "Failed to notify new user my name | %v", err)
 		}
 		return remotePort, true
 	}
-	if _, err := client.SendString(common.UserExists, "%v is already exists, please choose another name: ", name); err != nil {
-		common.Error(s.logChannel, "Failed to notify user already exists | %v", err)
+	if _, err := client.SendString(UserExists, "%v is already exists, please choose another name: ", name); err != nil {
+		utils.Error(s.logChannel, "Failed to notify user already exists | %v", err)
 	}
 	return 0, false
 }
 
-func ReadCommand(c *common.Client) (string, string) {
+func ReadCommand(c *Conn) (string, string) {
 	_, rawData, _ := c.ReadAllAsString()
 	parts := strings.SplitN(rawData, " ", 2)
 
 	return parts[0], parts[1]
 }
 
-func (s *Server) handleConnection(client *common.Client) {
+func (s *Server) handleConnection(client *Conn) {
 	code, data, err := client.ReadAllAsString()
 	if client.Closed {
 		s.removeConnection(client)
@@ -141,31 +142,31 @@ func (s *Server) handleConnection(client *common.Client) {
 	}
 
 	if err != nil {
-		common.Error(s.logChannel, "failed to read from client, error: %v", err)
+		utils.Error(s.logChannel, "failed to read from client, error: %v", err)
 	}
 
 	name := client.Name
-	if code == common.PM {
+	if code == PM {
 		name = fmt.Sprintf("(PM) %v", name)
-	} else if code == common.Shell {
+	} else if code == Shell {
 		name = fmt.Sprintf("(SHELL) %v", name)
 	}
 
-	name = common.ColorSprintf(client.Color, "%v:", name)
+	name = utils.ColorSprintf(client.Color, "%v:", name)
 	s.OutChannel <- fmt.Sprintf("%v %v", name, data)
 
 	go s.handleConnection(client)
 }
 
-func (s *Server) removeConnection(client *common.Client) {
+func (s *Server) removeConnection(client *Conn) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
 	client.Close()
 	delete(s.Clients, client.Name)
 
-	s.InChannel <- common.InnerCommand{
-		Command: common.ClientDisconnect,
+	s.InChannel <- InnerCommand{
+		Command: ClientDisconnect,
 		Data:    client.Name,
 	}
 }

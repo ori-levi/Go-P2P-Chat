@@ -1,8 +1,9 @@
-package client
+package network
 
 import (
 	"bufio"
 	"fmt"
+	"levi.ori/p2p-chat/utils"
 	"net"
 	"os"
 	"strings"
@@ -16,8 +17,8 @@ var commands = map[string]func(*Client, []string){
 }
 
 type Client struct {
-	common.Client
-	Connections map[string]*common.Client
+	Conn
+	Connections map[string]*Conn
 	reader      *bufio.Reader
 	locker      sync.RWMutex
 	serverPort  int
@@ -26,8 +27,8 @@ type Client struct {
 
 func NewClient(name string, serverPort int, logChannel chan string) Client {
 	return Client{
-		Client:      common.NewClient(name, nil, logChannel, common.ResetColor),
-		Connections: make(map[string]*common.Client),
+		Conn:        NewConn(name, nil, logChannel, utils.ResetColor),
+		Connections: make(map[string]*Conn),
 		reader:      bufio.NewReader(os.Stdin),
 		serverPort:  serverPort,
 		logChannel:  logChannel,
@@ -46,7 +47,7 @@ func (c *Client) Run(serverNotification chan interface{}, input chan string) {
 			if handler, ok := commands[command]; ok {
 				handler(c, arguments)
 			} else {
-				common.Info(c.logChannel, "Command %v is not recognized", command)
+				utils.Info(c.logChannel, "Command %v is not recognized", command)
 			}
 		} else {
 			sendToAll(c, data)
@@ -57,22 +58,22 @@ func (c *Client) Run(serverNotification chan interface{}, input chan string) {
 func (c *Client) handleConnectionsFromServer(ic chan interface{}) {
 	for {
 		rawMessage := <-ic
-		msg, ok := rawMessage.(common.InnerCommand)
+		msg, ok := rawMessage.(InnerCommand)
 		if ok {
-			if msg.Command == common.ClientDisconnect {
+			if msg.Command == ClientDisconnect {
 				clientName := msg.Data.(string)
-				common.Debug(c.logChannel, "client %v disconnected", clientName)
+				utils.Debug(c.logChannel, "client %v disconnected", clientName)
 				c.removeConnection(clientName)
-			} else if msg.Command == common.ClientConnect {
+			} else if msg.Command == ClientConnect {
 				parts := msg.Data.([]interface{})
 				clientName := parts[0].(string)
 				remoteAddr := strings.Split(parts[1].(string), ":")
 				remotePort := parts[2].(int)
 
 				addr := fmt.Sprintf("%v:%v", remoteAddr[0], remotePort)
-				common.Debug(c.logChannel, "client %v connect %v", clientName, addr)
+				utils.Debug(c.logChannel, "client %v connect %v", clientName, addr)
 				if err := c.makeConnection(addr); err != nil {
-					common.Error(c.logChannel, "Failed to make connection | %v", err)
+					utils.Error(c.logChannel, "Failed to make connection | %v", err)
 				}
 			}
 		}
@@ -85,7 +86,7 @@ func (c *Client) removeConnection(clientName string) {
 
 	client, ok := c.Connections[clientName]
 	if !ok {
-		common.Debug(c.logChannel, "Client %v is not exists", clientName)
+		utils.Debug(c.logChannel, "Client %v is not exists", clientName)
 		return
 	}
 
@@ -102,30 +103,30 @@ func (c *Client) makeConnection(addr string) error {
 		return err
 	}
 
-	client := common.NewClient("", conn, c.logChannel, common.ResetColor)
+	client := NewConn("", conn, c.logChannel, utils.ResetColor)
 	ok := c.register(&client, c.Name, c.serverPort)
 	if ok {
-		common.Debug(c.logChannel, "Successfully connect to server")
+		utils.Debug(c.logChannel, "Successfully connect to server")
 		c.Connections[client.Name] = &client
 	}
 	return nil
 }
 
-func (c *Client) register(client *common.Client, name string, serverPort int) bool {
-	_, err := client.SendString(common.Ok, "%v %v %v", common.Register, name, serverPort)
+func (c *Client) register(client *Conn, name string, serverPort int) bool {
+	_, err := client.SendString(Ok, "%v %v %v", Register, name, serverPort)
 	if err != nil {
-		common.Error(c.logChannel, "Failed to send command REGISTER")
+		utils.Error(c.logChannel, "Failed to send command REGISTER")
 		return false
 	}
 
 	code, data, err := client.ReadAllAsString()
 	if err != nil {
-		common.Error(c.logChannel, "Failed to establish connection: %v", err)
+		utils.Error(c.logChannel, "Failed to establish connection: %v", err)
 		return false
 	}
 
-	if code != common.MyName {
-		common.Error(c.logChannel, "Failed to establish connection - get remote name: %v", err)
+	if code != MyName {
+		utils.Error(c.logChannel, "Failed to establish connection - get remote name: %v", err)
 		return false
 	}
 
@@ -134,45 +135,45 @@ func (c *Client) register(client *common.Client, name string, serverPort int) bo
 }
 
 func (c *Client) Close() {
-	c.Client.Close()
+	c.Conn.Close()
 	for _, client := range c.Connections {
 		client.Close()
 	}
 }
 
 func pmCommand(c *Client, arguments []string) {
-	c.sendPrivate(arguments, common.PM, "PM")
+	c.sendPrivate(arguments, PM, "PM")
 }
 
 func connectCommand(c *Client, arguments []string) {
-	common.Debug(c.logChannel, "Connect command %v", arguments)
+	utils.Debug(c.logChannel, "Connect command %v", arguments)
 
 	addr := strings.Join(arguments[:2], ":")
 	if err := c.makeConnection(addr); err != nil {
-		common.Info(c.logChannel, "Failed to connect to %v; error %v", addr, err)
+		utils.Info(c.logChannel, "Failed to connect to %v; error %v", addr, err)
 	}
 }
 
 func shellCommand(c *Client, arguments []string) {
-	c.sendPrivate(arguments, common.Shell, "Shell")
+	c.sendPrivate(arguments, Shell, "Shell")
 }
 
 func (c *Client) sendPrivate(arguments []string, code int, command string) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
-	common.Debug(c.logChannel, "%v command %v", command, arguments)
+	utils.Debug(c.logChannel, "%v command %v", command, arguments)
 
 	name := arguments[0]
 	conn, ok := c.Connections[name]
 	if !ok {
-		common.Info(c.logChannel, "Failed to send %v to %v, are you sure he is connected?", command, name)
+		utils.Info(c.logChannel, "Failed to send %v to %v, are you sure he is connected?", command, name)
 		return
 	}
 
 	msg := strings.Join(arguments[1:], " ")
 	if _, err := conn.SendString(code, msg); err != nil {
-		common.Error(c.logChannel, "Failed to send %v to %v | %v", command, name, err)
+		utils.Error(c.logChannel, "Failed to send %v to %v | %v", command, name, err)
 	}
 }
 
@@ -181,8 +182,8 @@ func sendToAll(c *Client, msg string) {
 	defer c.locker.RUnlock()
 
 	for name, conn := range c.Connections {
-		if _, err := conn.SendString(common.Ok, msg); err != nil {
-			common.Error(c.logChannel, "Failed to send message to %v | %v", name, err)
+		if _, err := conn.SendString(Ok, msg); err != nil {
+			utils.Error(c.logChannel, "Failed to send message to %v | %v", name, err)
 		}
 	}
 }

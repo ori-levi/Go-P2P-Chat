@@ -1,4 +1,4 @@
-package common
+package network
 
 const (
 	Ok         = 200
