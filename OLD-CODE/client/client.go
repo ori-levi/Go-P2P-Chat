@@ -3,7 +3,6 @@ package client
 import (
 	"bufio"
 	"fmt"
-	"levi.ori/p2p-chat/common"
 	"net"
 	"os"
 	"strings"

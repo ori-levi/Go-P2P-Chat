@@ -1,15 +1,13 @@
-package main
+package OLD_CODE
 
 import (
 	"bufio"
 	"fmt"
 	"io"
-	"levi.ori/p2p-chat/common"
+	"levi.ori/p2p-chat/OLD-CODE/common"
 	"log"
 	"os/exec"
 	"strings"
-
-	"github.com/jroimartin/gocui"
 )
 
 type Widget struct {

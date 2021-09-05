@@ -6,8 +6,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-
-	"levi.ori/p2p-chat/common"
 )
 
 const (
