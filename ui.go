@@ -15,7 +15,7 @@ var titleStyle = fyne.TextStyle{
 	Italic: true,
 }
 
-func newUi() *fyne.Window {
+func newUi(input chan string) *fyne.Window {
 	a := app.New()
 	w := a.NewWindow("Hello")
 	w.Resize(fyne.NewSize(1024, 768))
@@ -24,7 +24,6 @@ func newUi() *fyne.Window {
 	usersPanel, _ := newUsersPanel()
 	notificationPanel, _ := newNotificationPanel()
 
-	//hello := widget.NewLabel("Hello Fyne!")
 	w.SetContent(
 		container.NewVBox(
 			container.NewBorder(
@@ -37,7 +36,7 @@ func newUi() *fyne.Window {
 				),
 				chatPanel,
 			),
-			newInputPanel(),
+			newInputPanel(input),
 			notificationPanel,
 		),
 	)
@@ -45,7 +44,7 @@ func newUi() *fyne.Window {
 	return &w
 }
 
-func newInputPanel() *fyne.Container {
+func newInputPanel(input chan string) *fyne.Container {
 	inputEntry := widget.NewEntry()
 	inputEntry.PlaceHolder = "What's On Your Mind?"
 
@@ -54,7 +53,11 @@ func newInputPanel() *fyne.Container {
 		nil,
 		nil,
 		widget.NewButton("Send", func() {
-			fmt.Println(inputEntry.Text)
+			if len(inputEntry.Text) == 0 {
+				return
+			}
+
+			input <- inputEntry.Text
 			inputEntry.SetText("")
 		}),
 		inputEntry,
